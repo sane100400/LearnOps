@@ -1,0 +1,52 @@
+services:
+  vuln-db:
+    image: learnops-vuln-db
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM mysql:8.0
+    container_name: learnops-vuln-db-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: vuln_db
+      MYSQL_USER: vuln_user
+      MYSQL_PASSWORD: vuln_pass
+    volumes:
+      - ./docker/vuln-app/src/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    labels:
+      managed-by: learnops
+
+  vuln-app:
+    build:
+      context: ./docker/vuln-app
+      dockerfile: Dockerfile
+    image: learnops-vuln-app
+    container_name: learnops-vuln-app-dev
+    environment:
+      DB_HOST: vuln-db
+      DB_USER: vuln_user
+      DB_PASS: vuln_pass
+      DB_NAME: vuln_db
+    depends_on:
+      vuln-db:
+        condition: service_healthy
+    labels:
+      managed-by: learnops
+
+  attacker:
+    build:
+      context: ./docker/attacker
+      dockerfile: Dockerfile
+    image: learnops-attacker
+    container_name: learnops-attacker-dev
+    stdin_open: true
+    tty: true
+    depends_on:
+      - vuln-app
+    labels:
+      managed-by: learnops

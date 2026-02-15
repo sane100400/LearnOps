@@ -1,0 +1,6 @@
+Target: http://target-app
+OS: Ubuntu 22.04
+Web Server: Apache 2.4
+Backend: PHP 8.1
+Database: MySQL 8.0
+Open Ports: 80(HTTP), 3306(MySQL)

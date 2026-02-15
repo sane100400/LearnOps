@@ -1,0 +1,45 @@
+export const currentUser = {
+  id: 1,
+  name: '김보안',
+  email: 'boahn.kim@example.com',
+  role: 'operator',
+  level: '고급',
+  avatar: '김',
+  gradient: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+}
+
+export const dummyUsers = [
+  {
+    id: 1,
+    name: '김보안',
+    email: 'boahn.kim@example.com',
+    role: 'operator',
+    level: '고급',
+    avatar: '김',
+    gradient: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    interests: ['웹 보안', '포렌식'],
+    progress: 72,
+  },
+  {
+    id: 2,
+    name: '이해커',
+    email: 'hacker.lee@example.com',
+    role: 'learner',
+    level: '중급',
+    avatar: '이',
+    gradient: 'linear-gradient(135deg, #06B6D4, #10B981)',
+    interests: ['네트워크', '리버싱'],
+    progress: 58,
+  },
+  {
+    id: 3,
+    name: '박시큐',
+    email: 'secu.park@example.com',
+    role: 'learner',
+    level: '초급',
+    avatar: '박',
+    gradient: 'linear-gradient(135deg, #10B981, #F59E0B)',
+    interests: ['암호학', '시스템 보안'],
+    progress: 35,
+  },
+]

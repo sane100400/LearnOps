@@ -1,0 +1,5 @@
+[SQL Injection Memo]
+- Login form: POST /login.php (username, password parameters)
+- DB: MySQL (assumed)
+- Input values appear to be inserted directly into the query
+- Single quote (') input causes an error
