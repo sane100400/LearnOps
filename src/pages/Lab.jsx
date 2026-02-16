@@ -411,12 +411,24 @@ export default function Lab() {
                   />
                 ) : (
                   <div style={styles.webPlaceholder}>
-                    <Globe size={48} style={{ color: '#94A3B8' }} />
-                    <p style={styles.webPlaceholderText}>
-                      {status === 'starting'
-                        ? '웹 환경을 시작하는 중...'
-                        : '"환경 시작" 버튼을 클릭하면 여기에 대상 웹사이트가 표시됩니다.'}
-                    </p>
+                    {status === 'starting' ? (
+                      <>
+                        <Loader size={40} style={{ color: '#06B6D4', animation: 'spin 1s linear infinite' }} />
+                        <p style={{ ...styles.webPlaceholderText, color: '#06B6D4', fontWeight: 600 }}>
+                          환경을 준비하는 중...
+                        </p>
+                        <p style={{ ...styles.webPlaceholderText, fontSize: '0.8rem' }}>
+                          Docker 컨테이너 생성 및 DB 초기화 중입니다
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Globe size={48} style={{ color: '#94A3B8' }} />
+                        <p style={styles.webPlaceholderText}>
+                          "환경 시작" 버튼을 클릭하면 여기에 대상 웹사이트가 표시됩니다.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

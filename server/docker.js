@@ -168,8 +168,28 @@ export async function startLab(sessionId) {
     networkName,
   });
 
-  // Wait for MySQL to fully initialize (first run takes ~20s for init scripts)
-  await new Promise((r) => setTimeout(r, 20000));
+  // MySQL 준비 대기: healthcheck 폴링 (최대 30초, 고정 20초 대기 대신)
+  const maxWait = 30000;
+  const interval = 1000;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    try {
+      const exec = await db.exec({
+        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+      const stream = await exec.start({ Detach: false, Tty: false });
+      const output = await new Promise((resolve) => {
+        let buf = '';
+        stream.on('data', (chunk) => { buf += chunk.toString(); });
+        stream.on('end', () => resolve(buf));
+        stream.on('error', () => resolve(''));
+      });
+      if (output.includes('alive')) break;
+    } catch { /* container not ready yet */ }
+    await new Promise((r) => setTimeout(r, interval));
+  }
 
   return { status: 'started' };
 }
