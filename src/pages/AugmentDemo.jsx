@@ -22,7 +22,6 @@ const AUGMENTS = [
   // Nerf (red) - 6개: 어려워지지만 점수 배율 증가
   { id: 'speed-demon', name: '스피드 데몬', desc: '제한 시간이 40% 감소합니다', category: 'nerf', tier: 'silver', icon: Flame, scoreMultiplier: 1.5, effect: { timeMultiplier: 0.6 } },
   { id: 'no-hints', name: '무힌트 도전', desc: '모든 힌트가 비활성화됩니다', category: 'nerf', tier: 'gold', icon: EyeOff, scoreMultiplier: 1.4, effect: { noHints: true } },
-  { id: 'obfuscation', name: '코드 난독화', desc: '코드가 난독화되어 표시됩니다', category: 'nerf', tier: 'gold', icon: Code, scoreMultiplier: 1.6, effect: { obfuscate: true } },
   { id: 'pressure-cooker', name: '압력솥', desc: '시간이 50% 이하일 때 화면이 흔들립니다', category: 'nerf', tier: 'silver', icon: AlertTriangle, scoreMultiplier: 1.3, effect: { screenShake: true } },
   { id: 'difficulty-up', name: '난이도 상향', desc: '더 어려운 시나리오가 출제됩니다', category: 'nerf', tier: 'prismatic', icon: TrendingUp, scoreMultiplier: 1.8, effect: { difficultyShift: 1 } },
   { id: 'one-shot', name: '원샷 원킬', desc: '제출 기회가 단 1회뿐입니다', category: 'nerf', tier: 'prismatic', icon: Skull, scoreMultiplier: 2.0, effect: { maxSubmits: 1 } },
@@ -62,21 +61,6 @@ app.post('/login', (req, res) => {
     }
   });
 });`,
-    obfuscatedCode: `// s.js - L Handler
-app.post('/l', (r, s) => {
-  const { u, p } = r.body;
-  const q = \`SELECT * FROM t1
-    WHERE c1 = '\${u}'
-    AND c2 = '\${p}'\`;
-
-  db.query(q, (e, x) => {
-    if (x.length > 0) {
-      s.json({ s: true, d: x[0] });
-    } else {
-      s.json({ s: false });
-    }
-  });
-});`,
     hints: [
       '사용자 입력이 SQL 쿼리에 직접 삽입되는 부분을 찾아보세요.',
       "작은따옴표(')를 이용하면 SQL 구문을 조작할 수 있습니다.",
@@ -107,20 +91,6 @@ app.post('/l', (r, s) => {
 [2024-03-15 14:23:10] WARN  GET /.env 404 - 10.0.0.55
 [2024-03-15 14:25:00] INFO  GET /products 200 - 172.16.0.22
 [2024-03-15 14:25:30] INFO  POST /api/search 200 - 172.16.0.22`,
-    obfuscatedCode: `[T1] I  G /p1 2xx - IP_A
-[T1] I  G /p2 2xx - IP_A
-[T2] W  G /p3 4xx - IP_B
-[T2] W  G /p4 4xx - IP_B
-[T2] W  P /p4 4xx - IP_B
-[T2] W  P /p4 4xx - IP_B
-[T2] W  P /p4 4xx - IP_B
-[T2] E  P /p4 4xx - IP_B
-[T2] E  P /p4 4xx - IP_B
-[T2] W  G /p5 4xx - IP_B
-[T2] W  G /p6 4xx - IP_B
-[T2] W  G /p7 4xx - IP_B
-[T3] I  G /p8 2xx - IP_C
-[T3] I  P /p9 2xx - IP_C`,
     hints: [
       '로그에서 반복적으로 실패(4xx)하는 요청 패턴을 찾아보세요.',
       '같은 IP에서 짧은 시간 간격으로 다수의 실패 요청이 발생하고 있습니다.',
@@ -158,19 +128,6 @@ app.get('/api/posts/:id', (req, res) => {
       \`);
   });
 });`,
-    obfuscatedCode: `// m.js - API
-app.post('/a/p', (r, s) => {
-  const { t, c } = r.body;
-  db.run('INSERT INTO t1 (c1, c2) VALUES (?, ?)', [t, c]);
-  s.json({ s: true });
-});
-
-app.get('/a/p/:i', (r, s) => {
-  db.get('SELECT * FROM t1 WHERE id = ?', [r.params.i],
-    (e, d) => {
-      s.send(\`<h1>\${d.c1}</h1><div>\${d.c2}</div>\`);
-  });
-});`,
     hints: [
       '게시글 내용이 필터링 없이 저장되고 있습니다.',
       '게시글 렌더링 시 HTML 이스케이프 없이 직접 출력되고 있습니다.',
@@ -205,16 +162,6 @@ app.get('/api/dns', (req, res) => {
 
 // 의도된 사용: /api/dns?domain=example.com
 // 실제 실행: nslookup example.com`,
-    obfuscatedCode: `// d.js
-const { exec: e } = require('child_process');
-
-app.get('/a/d', (r, s) => {
-  const d = r.query.d;
-  e(\`cmd1 \${d}\`, (err, o, er) => {
-    if (err) { s.json({ e: er }); return; }
-    s.json({ r: o });
-  });
-});`,
     hints: [
       'exec() 함수에 사용자 입력이 직접 전달되고 있습니다.',
       '세미콜론(;)이나 파이프(|)를 이용하면 추가 명령을 실행할 수 있습니다.',
@@ -246,11 +193,6 @@ const config = {
   // ROT13 메모
   memo: "Guvf vf gur synt sbezng: YrnegBcf{...}"
   // ROT13("This is the flag format: LearnOps{...}")
-};`,
-    obfuscatedCode: `const c = {
-  s: "VEdWaGNtNVBjSHRsYm1Nd1pERnVaMTl0WVhOMFpYSjk=",
-  h: "NGM2NTYxNzI2ZTRmNzA3Mw==",
-  m: "Guvf vf gur synt sbezng: YrnegBcf{...}"
 };`,
     hints: [
       'secret 필드의 값은 Base64로 인코딩되어 있습니다.',
@@ -670,7 +612,6 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
   const timerRef = useRef(null)
   const inputRef = useRef(null)
 
-  const hasObfuscate = activeAugments.some(a => a.effect.obfuscate)
   const hasHighlight = activeAugments.some(a => a.effect.highlight)
   const hasNoHints = activeAugments.some(a => a.effect.noHints)
   const hasFreeHints = activeAugments.some(a => a.effect.freeHints)
@@ -771,7 +712,7 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
   const isTimeLow = timeLeft <= totalTime * 0.5
   const shaking = hasScreenShake && isTimeLow
 
-  const codeToDisplay = hasObfuscate ? scenario.obfuscatedCode : scenario.code
+  const codeToDisplay = scenario.code
   const codeLines = codeToDisplay.split('\n')
 
   // 자동 디코딩: Base64 문자열 자동 변환
@@ -819,7 +760,7 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
           <div style={s.codeHeader}>
             <Code size={16} style={{ color: '#94A3B8' }} />
             <span style={{ color: '#94A3B8', fontSize: '0.85rem' }}>
-              {hasObfuscate ? '난독화된 코드' : '취약한 코드'}
+              취약한 코드
             </span>
           </div>
           <pre style={s.codeBlock}>
