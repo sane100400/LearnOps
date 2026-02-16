@@ -26,42 +26,91 @@ import Card from '../components/Card'
    CONFIG
    ========================================================= */
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
 const MAX_QUESTIONS = 12
 const MIN_CHAT_MESSAGES = 5
+const DIRECTION_PHASE_END = 8  // Q1~Q8: 방향 탐색, Q9~Q12: 지식 측정
 
 /* =========================================================
-   Initial Questions (첫 2문항은 고정 — AI 컨텍스트 시드)
+   Initial Questions (첫 3문항은 고정 — 학습 방향 탐색 시드)
    ========================================================= */
 
 const initialQuestions = [
   {
     type: 'single-with-text',
-    question: 'IT 분야 중 어디에 가장 관심이 있으신가요?',
-    options: ['보안/해킹', '개발', '인프라/클라우드'],
+    question: '보안 학습을 시작하려는 이유가 무엇인가요?',
+    options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/흥미'],
+  },
+  {
+    type: 'multi-with-text',
+    question: '현재 IT 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+    options: ['프로그래밍/개발', '서버/네트워크 관리', '보안 관련 업무나 학습'],
+  },
+  {
+    type: 'single-with-text',
+    question: '보안 분야 중 가장 끌리는 방향이 있으신가요?',
+    options: ['웹/앱 해킹 (버그바운티, 모의해킹)', '시스템/네트워크 보안 (침투테스트, 포렌식)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
   },
 ]
+
+/* =========================================================
+   Backend AI Proxy Helper
+   ========================================================= */
+
+async function aiProxy(messages, temperature = 0.8, max_tokens = 500) {
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, temperature, max_tokens }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.choices?.[0]?.message?.content?.trim() || null
+  } catch {
+    return null
+  }
+}
 
 /* =========================================================
    OpenAI API — Adaptive Question Generation
    ========================================================= */
 
 async function generateNextQuestion(history) {
-  if (!OPENAI_API_KEY) return null
-
   const historyText = history.map((h, i) =>
     `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}`
   ).join('\n\n')
 
+  const currentNum = history.length + 1
+  const isDirectionPhase = currentNum <= DIRECTION_PHASE_END
+
+  const directionGuidance = isDirectionPhase
+    ? `현재는 **방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})입니다.
+아직 파악하지 못한 정보를 우선적으로 질문하세요:
+- 구체적인 학습 목표 (예: 어떤 자격증? 어떤 직무? 어떤 프로젝트?)
+- 학습에 투자할 수 있는 시간과 기간
+- 선호하는 학습 방식 (이론 vs 실습, 혼자 vs 그룹)
+- 관심 있는 보안 세부 분야 (웹 해킹, 포렌식, 악성코드 분석, 클라우드 보안, 네트워크 침투 등)
+- 이전 학습 경험이나 시도한 적 있는 것 (CTF, 온라인 강의, 독학 등)
+- 현재 개발/IT 역량 수준 (프로그래밍 언어, 리눅스 경험, 네트워크 이해도 등)
+- 최종적으로 되고 싶은 모습이나 커리어 방향
+
+** 절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
+이전 답변에서 이미 파악된 정보는 건너뛰고, 아직 모르는 부분을 물어보세요.`
+    : `현재는 **지식 측정 단계** (문항 ${currentNum}/${MAX_QUESTIONS})입니다.
+사용자가 관심 있다고 한 분야에서 실제 지식 수준을 측정하는 4지선다 퀴즈를 출제하세요.
+- 반드시 quiz 타입을 사용하세요
+- 너무 쉽거나 너무 어려운 문제는 피하세요
+- 이전에 틀린 문제가 있다면 난이도를 조절하세요`
+
   const systemPrompt = `당신은 사이버 보안 학습 성향 및 역량 분석 전문가입니다.
 사용자의 이전 답변을 기반으로 다음 질문을 생성하세요.
 
-목표: 아키네이터처럼 점진적으로 사용자의 관심사, 경험 수준, 학습 목표, 보안 지식을 파악합니다.
+목표: 아키네이터처럼 점진적으로 사용자의 학습 방향, 동기, 경험, 목표를 깊이 파악한 뒤, 마지막에 지식 수준을 측정합니다.
 
-규칙:
+${directionGuidance}
+
+공통 규칙:
 - 이전 답변을 반영하여 자연스럽게 이어지는 질문을 하세요
-- 초반(1~4번)에는 관심사/경험/목표 위주, 후반(5번~)에는 지식 수준 측정 문제를 내세요
-- 지식 문제는 사용자가 관심 있다고 한 분야에서 출제하세요
 - 한 번에 1개 질문만 생성하세요
 - 주관식(text)만으로 이루어진 질문은 절대 생성하지 마세요
 - 모든 질문에는 반드시 객관식 선택지 3개를 포함해야 합니다
@@ -76,33 +125,21 @@ async function generateNextQuestion(history) {
 2) 복수 선택 (+ 직접 입력 가능):
 {"type":"multi-with-text","question":"질문","options":["선택지1","선택지2","선택지3"]}
 
-3) 4지선다 지식 문제 (정답 포함):
+3) 4지선다 지식 문제 (정답 포함) — **지식 측정 단계에서만 사용**:
 {"type":"quiz","question":"질문","options":["선택지1","선택지2","선택지3","선택지4"],"answer":0}
 answer는 정답 인덱스(0~3)
 
 현재까지 ${history.length}개 질문 완료. 총 ${MAX_QUESTIONS}개 질문 예정.`
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `이전 문답 기록:\n${historyText}\n\n다음 질문을 생성해주세요.` },
-        ],
-        temperature: 0.8,
-        max_tokens: 500,
-      }),
-    })
-
-    if (!response.ok) return null
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content?.trim()
+    const content = await aiProxy(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `이전 문답 기록:\n${historyText}\n\n다음 질문을 생성해주세요.` },
+      ],
+      0.8,
+      500,
+    )
     if (!content) return null
 
     let jsonStr = content
@@ -111,10 +148,7 @@ answer는 정답 인덱스(0~3)
 
     const parsed = JSON.parse(jsonStr)
     if (parsed.question && parsed.type) {
-      // 순수 text 타입이면 single-with-text로 변환
-      if (parsed.type === 'text') {
-        return null
-      }
+      if (parsed.type === 'text') return null
       return parsed
     }
     return null
@@ -128,8 +162,6 @@ answer는 정답 인덱스(0~3)
    ========================================================= */
 
 async function generateAnalysis(history) {
-  if (!OPENAI_API_KEY) return null
-
   const historyText = history.map((h, i) =>
     `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}${h.correct !== undefined ? ` (${h.correct ? '정답' : '오답'})` : ''}`
   ).join('\n\n')
@@ -137,46 +169,37 @@ async function generateAnalysis(history) {
   const systemPrompt = `당신은 사이버 보안 학습 분석 전문가입니다.
 사용자의 전체 문답 기록을 분석하여 종합 결과를 생성하세요.
 
+중요: 사용자의 학습 동기, 목표, 관심 방향, 경험 수준을 충분히 반영하세요.
+단순히 지식 점수만이 아니라, 사용자가 어디로 가고 싶어하는지, 어떤 학습 경로가 적합한지를 중심으로 분석하세요.
+
 반드시 아래 JSON 형식으로만 응답하세요:
 {
-  "profileName": "프로필 타입명 (예: 공격형 보안 전문가)",
-  "profileDesc": "한 줄 설명",
+  "profileName": "프로필 타입명 (예: 공격형 보안 전문가 지망생)",
+  "profileDesc": "사용자의 학습 방향과 특성을 반영한 한 줄 설명",
   "level": "초급/중급/상급 중 택 1",
-  "interests": ["관심 분야 태그 배열"],
-  "strengths": ["강점 3개"],
-  "improvements": ["보완할 점 3개"],
+  "interests": ["관심 분야 태그 배열 — 사용자가 직접 언급한 분야 중심"],
+  "strengths": ["강점 3개 — 학습 동기, 경험, 방향성 포함"],
+  "improvements": ["보완할 점 3개 — 구체적이고 실행 가능한 조언"],
   "recommendations": [
-    {"title": "추천 경로 1", "desc": "설명"},
+    {"title": "추천 경로 1", "desc": "사용자의 목표에 맞는 구체적 설명"},
     {"title": "추천 경로 2", "desc": "설명"},
     {"title": "추천 경로 3", "desc": "설명"}
   ],
   "radarData": [
     {"subject": "분야명", "score": 0~100},
-    ...최소 5개
+    ...최소 5개 — 사용자 관심 분야를 반영한 레이더 축
   ]
 }`
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `전체 문답 기록:\n${historyText}\n\n종합 분석 결과를 생성해주세요.` },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
-    })
-
-    if (!response.ok) return null
-    const data = await response.json()
-    const content = data.choices?.[0]?.message?.content?.trim()
+    const content = await aiProxy(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `전체 문답 기록:\n${historyText}\n\n종합 분석 결과를 생성해주세요.` },
+      ],
+      0.7,
+      1000,
+    )
     if (!content) return null
 
     let jsonStr = content
@@ -194,41 +217,35 @@ async function generateAnalysis(history) {
    ========================================================= */
 
 async function generateChatResponse(messages) {
-  if (!OPENAI_API_KEY) return null
-
   const systemPrompt = `당신은 사이버 보안 학습 상담사입니다. 친근하고 전문적인 톤으로 대화하세요.
 
-목표: 자연스러운 대화를 통해 사용자의 관심 분야, 경험 수준, 학습 목표를 파악합니다.
+목표: 자연스러운 대화를 통해 사용자의 학습 방향, 동기, 관심 분야, 경험 수준, 학습 목표를 깊이 파악합니다.
+
+대화 흐름 가이드:
+1단계 (1~2번째 메시지): 학습을 시작하려는 동기와 배경을 파악
+2단계 (3~4번째 메시지): 관심 있는 보안 세부 분야와 이유 탐색
+3단계 (5~6번째 메시지): 구체적인 목표 (취업, 자격증, 프로젝트 등)와 투자 가능 시간
+4단계 (7번째~): 선호하는 학습 방식, 현재 역량 수준 확인, 정리
 
 규칙:
 - 한 번에 1~2개의 질문만 하세요
 - 사용자의 답변에 공감하고 적절한 피드백을 제공하세요
-- 보안, 개발, 인프라, 클라우드 등 IT 학습 분야에 집중하세요
+- "왜 그 분야에 관심을 갖게 되셨어요?", "구체적으로 어떤 일을 해보고 싶으세요?" 같은 깊이 있는 질문을 하세요
 - 너무 형식적이지 않게, 자연스러운 대화체를 사용하세요
 - 답변은 2~4문장으로 간결하게 유지하세요
+- 지식을 테스트하지 마세요 — 방향성과 목표 파악에 집중하세요
 - 사용자가 충분한 정보를 제공했다면 추가 질문보다는 정리/확인을 하세요`
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        temperature: 0.8,
-        max_tokens: 300,
-      }),
-    })
-
-    if (!response.ok) return null
-    const data = await response.json()
-    return data.choices?.[0]?.message?.content?.trim() || null
+    const content = await aiProxy(
+      [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ],
+      0.8,
+      300,
+    )
+    return content
   } catch {
     return null
   }
@@ -543,9 +560,7 @@ export default function LevelTest() {
                     AI가 당신의 답변을 분석하여
                     <br />맞춤형 역량 분석 리포트를 생성합니다.
                   </p>
-                  {OPENAI_API_KEY && (
-                    <div style={s.aiBadge}>&#10024; AI 적응형 분석 활성화</div>
-                  )}
+                  <div style={s.aiBadge}>&#10024; AI 적응형 분석 활성화</div>
                 </div>
 
                 {/* Option cards */}
@@ -568,25 +583,23 @@ export default function LevelTest() {
                     </div>
                   </Card>
 
-                  {/* Chat option — only shown when API key exists */}
-                  {OPENAI_API_KEY && (
-                    <Card hover={false} style={s.optionCard} onClick={startChat}>
-                      <div style={{ ...s.optionCardIcon, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08))', color: '#10B981' }}>
-                        <MessageSquare size={32} />
-                      </div>
-                      <h3 style={s.optionCardTitle}>AI 대화형 상담</h3>
-                      <p style={s.optionCardDesc}>
-                        자유로운 대화를 통해 관심 분야와 학습 목표를 구체화
-                      </p>
-                      <div style={s.optionCardMeta}>
-                        <span style={s.optionCardTag}>자유 대화</span>
-                        <span style={s.optionCardTag}>맞춤형 분석</span>
-                      </div>
-                      <div style={{ ...s.optionCardAction, background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        시작하기 <ChevronRight size={16} style={{ color: '#10B981' }} />
-                      </div>
-                    </Card>
-                  )}
+                  {/* Chat option */}
+                  <Card hover={false} style={s.optionCard} onClick={startChat}>
+                    <div style={{ ...s.optionCardIcon, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08))', color: '#10B981' }}>
+                      <MessageSquare size={32} />
+                    </div>
+                    <h3 style={s.optionCardTitle}>AI 대화형 상담</h3>
+                    <p style={s.optionCardDesc}>
+                      자유로운 대화를 통해 관심 분야와 학습 목표를 구체화
+                    </p>
+                    <div style={s.optionCardMeta}>
+                      <span style={s.optionCardTag}>자유 대화</span>
+                      <span style={s.optionCardTag}>맞춤형 분석</span>
+                    </div>
+                    <div style={{ ...s.optionCardAction, background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                      시작하기 <ChevronRight size={16} style={{ color: '#10B981' }} />
+                    </div>
+                  </Card>
                 </div>
               </div>
             </div>

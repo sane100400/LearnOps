@@ -14,7 +14,7 @@ import Sidebar from '../components/Sidebar'
 import Card from '../components/Card'
 import Button from '../components/Button'
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
+/* AI calls go through backend proxy at /api/ai/chat */
 
 const CATEGORIES = {
   web: { label: '웹 보안', color: '#4F46E5', icon: Globe },
@@ -120,13 +120,12 @@ const FALLBACK_CHAT = [
   '좋습니다! 충분한 정보가 모였네요. "로드맵 생성하기" 버튼을 눌러주시면 구조화된 로드맵을 만들어 드리겠습니다.',
 ]
 
-async function aiChat(messages, systemPrompt) {
-  if (!OPENAI_API_KEY) return null
+async function aiProxy(messages, temperature = 0.8, max_tokens = 500) {
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('/api/ai/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, ...messages], temperature: 0.8, max_tokens: 500 }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, temperature, max_tokens }),
     })
     if (!res.ok) return null
     const data = await res.json()
@@ -134,17 +133,13 @@ async function aiChat(messages, systemPrompt) {
   } catch { return null }
 }
 
+async function aiChat(messages, systemPrompt) {
+  return aiProxy([{ role: 'system', content: systemPrompt }, ...messages], 0.8, 500)
+}
+
 async function aiJson(messages, systemPrompt) {
-  if (!OPENAI_API_KEY) return null
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: systemPrompt }, ...messages], temperature: 0.7, max_tokens: 2000 }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const c = data.choices?.[0]?.message?.content?.trim()
+    const c = await aiProxy([{ role: 'system', content: systemPrompt }, ...messages], 0.7, 2000)
     if (!c) return null
     let j = c; const m = c.match(/```(?:json)?\s*([\s\S]*?)```/); if (m) j = m[1].trim()
     return JSON.parse(j)

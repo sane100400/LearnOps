@@ -7,6 +7,7 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { URL } from 'url';
 import labRouter from './routes/lab.js';
+import aiRouter from './routes/ai.js';
 import { attachWebSocket, cleanupOrphans } from './docker.js';
 
 const PORT = process.env.SERVER_PORT || 3001;
@@ -32,7 +33,15 @@ const labLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
 });
 
+// Rate limiter for AI API (20 requests per minute)
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Too many AI requests, please try again later.' },
+});
+
 // Routes
+app.use('/api/ai', aiLimiter, aiRouter);
 app.use('/api/lab', labLimiter, labRouter);
 
 app.get('/api/health', (_req, res) => {
