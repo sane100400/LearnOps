@@ -666,6 +666,7 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
   })
   const [swapUsed, setSwapUsed] = useState(false)
   const [comboCount, setComboCount] = useState(0)
+  const [gaveUp, setGaveUp] = useState(false)
   const timerRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -756,6 +757,15 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
         setAnswer('')
       }
     }
+  }
+
+  const handleGiveUp = () => {
+    clearInterval(timerRef.current)
+    setGaveUp(true)
+    setFeedback({ type: 'giveup', message: `정답: ${scenario.answers[0]}` })
+    setTimeout(() => {
+      onComplete(false, timeLeft, totalTime, hasFreeHints ? 0 : hintsRevealed, hasTimeBank ? timeLeft : 0)
+    }, 3000)
   }
 
   const isTimeLow = timeLeft <= totalTime * 0.5
@@ -883,12 +893,21 @@ function ChallengeScreen({ scenario, round, activeAugments, bankedTime, onComple
           {feedback && (
             <div className="fade-in" style={{
               ...s.feedbackMsg,
-              color: feedback.type === 'success' ? '#10B981' : (feedback.type === 'retry' ? '#F59E0B' : '#EF4444'),
-              background: feedback.type === 'success' ? 'rgba(16,185,129,0.1)' : (feedback.type === 'retry' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'),
+              color: feedback.type === 'success' ? '#10B981' : (feedback.type === 'giveup' ? '#F59E0B' : (feedback.type === 'retry' ? '#F59E0B' : '#EF4444')),
+              background: feedback.type === 'success' ? 'rgba(16,185,129,0.1)' : (feedback.type === 'giveup' ? 'rgba(245,158,11,0.1)' : (feedback.type === 'retry' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)')),
+              ...(feedback.type === 'giveup' ? { fontFamily: "'JetBrains Mono', 'Fira Code', monospace" } : {}),
             }}>
-              {feedback.type === 'success' ? <Check size={16} /> : <X size={16} />}
+              {feedback.type === 'success' ? <Check size={16} /> : (feedback.type === 'giveup' ? <Eye size={16} /> : <X size={16} />)}
               {feedback.message}
             </div>
+          )}
+
+          {/* 포기 버튼 */}
+          {!gaveUp && feedback?.type !== 'success' && (
+            <button style={s.giveUpBtn} onClick={handleGiveUp}>
+              <X size={14} />
+              포기하고 정답 보기
+            </button>
           )}
         </div>
       </div>
@@ -1254,6 +1273,7 @@ const s = {
   answerInput: { flex: 1, padding: '12px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', color: '#E2E8F0', fontSize: '0.95rem', fontFamily: "'JetBrains Mono', 'Fira Code', monospace", outline: 'none', transition: 'border-color 0.2s' },
   submitBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '12px 20px', background: 'linear-gradient(135deg, #4F46E5, #06B6D4)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.2s', whiteSpace: 'nowrap' },
   feedbackMsg: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', padding: '10px 14px', borderRadius: '8px', fontSize: '0.9rem', fontWeight: 600 },
+  giveUpBtn: { display: 'flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-end', padding: '8px 16px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#64748B', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s', marginTop: '4px' },
 
   // Round Result
   resultOverlay: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', padding: '24px' },
