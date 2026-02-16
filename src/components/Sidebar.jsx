@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, GraduationCap, BookOpen, Terminal,
-  Trophy, Users, Settings, ChevronLeft, Menu, Cpu,
+  Trophy, Users, Settings, ChevronLeft, Menu, Cpu, Shield,
 } from 'lucide-react'
 import { useState } from 'react'
 import { currentUser } from '../data/users'
@@ -14,6 +14,7 @@ const menuItems = [
   { path: '/ranking', icon: Trophy, label: '랭킹' },
   { path: '/study-group', icon: Users, label: '스터디 그룹' },
   { path: '/curriculum-generate', icon: Cpu, label: '커리큘럼 생성' },
+  { path: '/admin', icon: Shield, label: '관리자' },
 ]
 
 export default function Sidebar() {

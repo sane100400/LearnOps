@@ -104,7 +104,7 @@ export async function startLab(sessionId) {
       ...CONTAINER_LIMITS,
       NetworkMode: networkName,
       CapDrop: ['ALL'],
-      CapAdd: ['SETUID', 'SETGID'],
+      CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
     },
     NetworkingConfig: {
       EndpointsConfig: {
@@ -165,10 +165,11 @@ export async function startLab(sessionId) {
   sessions.set(sessionId, {
     network,
     containers: { attacker, vulnApp, db },
+    networkName,
   });
 
-  // Wait briefly for MySQL to initialize
-  await new Promise((r) => setTimeout(r, 2000));
+  // Wait for MySQL to fully initialize (first run takes ~20s for init scripts)
+  await new Promise((r) => setTimeout(r, 20000));
 
   return { status: 'started' };
 }
@@ -205,7 +206,25 @@ export async function stopLab(sessionId) {
  * Get lab status
  */
 export function getLabStatus(sessionId) {
-  return sessions.has(sessionId) ? 'running' : 'stopped';
+  const session = sessions.get(sessionId);
+  if (!session) return { status: 'stopped' };
+  return { status: 'running' };
+}
+
+/**
+ * Get the internal IP of the vuln-app container for proxying
+ */
+export async function getAppTarget(sessionId) {
+  const session = sessions.get(sessionId);
+  if (!session) return null;
+
+  try {
+    const info = await session.containers.vulnApp.inspect();
+    const ip = info.NetworkSettings.Networks?.[session.networkName]?.IPAddress;
+    if (ip) return `http://${ip}:80`;
+  } catch { /* container gone */ }
+
+  return null;
 }
 
 /**

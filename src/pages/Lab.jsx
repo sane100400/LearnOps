@@ -12,7 +12,6 @@ import {
   Terminal,
   Clock,
   Lightbulb,
-  Send,
   ChevronRight,
   Play,
   Square,
@@ -22,16 +21,19 @@ import {
   Eye,
   EyeOff,
   FileText,
-  Code,
+  Globe,
   Loader,
 } from 'lucide-react'
 
 const SESSION_ID = 'default'
 
+// Lab type determines default view: 'web' → browser first, 'system' → terminal first
+const LAB_TYPE = 'web'  // SQLi is a web lab
+
 const hints = [
   '로그인 폼의 입력값이 직접 SQL 쿼리에 삽입됩니다.',
   "인증 쿼리: SELECT * FROM users WHERE username='입력값' AND password='입력값'",
-  "username에 ' OR '1'='1' -- 를 입력해보세요.",
+  "username에 admin'# 을 입력해보세요. (#은 MySQL 주석으로 뒤의 비밀번호 검증을 무시합니다)",
 ]
 
 function formatTime(seconds) {
@@ -59,10 +61,12 @@ const statusColors = {
 }
 
 export default function Lab() {
+  const [activeTab, setActiveTab] = useState(LAB_TYPE === 'web' ? 'web' : 'terminal')
   const [showHint, setShowHint] = useState(false)
   const [hintLevel, setHintLevel] = useState(0)
   const [timeLeft] = useState(1800)
   const [submitted, setSubmitted] = useState(false)
+  const [labCleared, setLabCleared] = useState(false)
 
   // xterm.js refs
   const terminalRef = useRef(null)
@@ -151,6 +155,18 @@ export default function Lab() {
     }
   }, [status])
 
+  // Listen for lab-clear postMessage from iframe
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === 'lab-clear') {
+        setLabCleared(true)
+        setSubmitted(true)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [])
+
   const handleStart = useCallback(async () => {
     if (terminalRef.current) {
       terminalRef.current.clear()
@@ -220,15 +236,12 @@ export default function Lab() {
               <Clock size={18} style={{ color: '#F59E0B' }} />
               <span style={styles.timerText}>{formatTime(timeLeft)}</span>
             </div>
-            <Button
-              variant="primary"
-              size="small"
-              onClick={() => setSubmitted(true)}
-              style={{ gap: '6px' }}
-            >
-              <Send size={16} />
-              제출하기
-            </Button>
+            {labCleared && (
+              <div style={styles.clearedBadge}>
+                <CheckCircle2 size={16} />
+                수강 완료
+              </div>
+            )}
           </div>
         </div>
 
@@ -327,17 +340,31 @@ export default function Lab() {
             </div>
           </div>
 
-          {/* Right panel - Terminal */}
+          {/* Right panel - Terminal / Web */}
           <div style={styles.rightPanel}>
             {/* Tab bar */}
             <div style={styles.tabBar}>
-              <button style={styles.tabActive}>
+              {LAB_TYPE === 'web' && (
+                <button
+                  style={activeTab === 'web' ? styles.tabActive : styles.tabInactive}
+                  onClick={() => setActiveTab('web')}
+                >
+                  <Globe size={14} />
+                  웹 브라우저
+                </button>
+              )}
+              <button
+                style={activeTab === 'terminal' ? styles.tabActive : styles.tabInactive}
+                onClick={() => {
+                  setActiveTab('terminal')
+                  // Re-fit terminal when switching to it
+                  setTimeout(() => {
+                    try { fitAddonRef.current?.fit() } catch { /* ignore */ }
+                  }, 50)
+                }}
+              >
                 <Terminal size={14} />
                 터미널
-              </button>
-              <button style={styles.tabInactive}>
-                <Code size={14} />
-                웹 브라우저
               </button>
               <div style={styles.tabBarActions}>
                 {status === 'idle' || status === 'stopped' || status === 'error' ? (
@@ -373,13 +400,41 @@ export default function Lab() {
               </div>
             </div>
 
-            {/* Terminal area - xterm.js */}
-            <div style={styles.terminalArea} ref={termContainerRef} />
+            {/* Web browser view */}
+            {activeTab === 'web' && (
+              <div style={styles.webViewArea}>
+                {isRunning ? (
+                  <iframe
+                    src={`/api/lab/proxy/?session=${SESSION_ID}`}
+                    title="Lab Web App"
+                    style={styles.webIframe}
+                  />
+                ) : (
+                  <div style={styles.webPlaceholder}>
+                    <Globe size={48} style={{ color: '#94A3B8' }} />
+                    <p style={styles.webPlaceholderText}>
+                      {status === 'starting'
+                        ? '웹 환경을 시작하는 중...'
+                        : '"환경 시작" 버튼을 클릭하면 여기에 대상 웹사이트가 표시됩니다.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Terminal area - xterm.js (always mounted, hidden when web tab active) */}
+            <div
+              style={{
+                ...styles.terminalArea,
+                display: activeTab === 'terminal' ? 'block' : 'none',
+              }}
+              ref={termContainerRef}
+            />
           </div>
         </div>
 
-        {/* Submit modal */}
-        {submitted && (
+        {/* Clear modal */}
+        {submitted && labCleared && (
           <div style={styles.modalOverlay}>
             <div style={styles.modalCard}>
               <button
@@ -391,20 +446,12 @@ export default function Lab() {
 
               <div style={styles.modalContent}>
                 <CheckCircle2 size={56} style={{ color: '#10B981' }} />
-                <h2 style={styles.modalTitle}>미션 완료!</h2>
+                <h2 style={styles.modalTitle}>수강 완료!</h2>
                 <p style={styles.modalSubtitle}>
                   SQL Injection 실습을 성공적으로 완료했습니다.
                 </p>
 
                 <div style={styles.scoreBox}>
-                  <div style={styles.scoreRow}>
-                    <span style={styles.scoreLabel}>점수</span>
-                    <span style={styles.scoreValue}>850</span>
-                  </div>
-                  <div style={styles.scoreRow}>
-                    <span style={styles.scoreLabel}>소요 시간</span>
-                    <span style={styles.scoreValueSm}>15:23</span>
-                  </div>
                   <div style={styles.scoreRow}>
                     <span style={styles.scoreLabel}>사용 힌트</span>
                     <span style={styles.scoreValueSm}>{hintLevel}개</span>
@@ -508,6 +555,18 @@ const styles = {
     fontWeight: 700,
     color: '#F59E0B',
     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  clearedBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 14px',
+    borderRadius: '20px',
+    background: 'rgba(16, 185, 129, 0.12)',
+    border: '1px solid rgba(16, 185, 129, 0.3)',
+    color: '#10B981',
+    fontSize: '0.85rem',
+    fontWeight: 700,
   },
 
   errorBanner: {
@@ -793,6 +852,37 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+  },
+
+  /* Web view */
+  webViewArea: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    background: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webIframe: {
+    width: '100%',
+    height: '100%',
+    border: 'none',
+  },
+  webPlaceholder: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '40px',
+  },
+  webPlaceholderText: {
+    color: '#94A3B8',
+    fontSize: '0.9rem',
+    fontWeight: 500,
+    textAlign: 'center',
+    lineHeight: 1.6,
+    margin: 0,
   },
 
   /* Terminal - xterm.js container */

@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Target,
   Loader2,
+  MessageSquare,
+  Send,
 } from 'lucide-react'
 import {
   RadarChart,
@@ -26,6 +28,7 @@ import Card from '../components/Card'
 
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || ''
 const MAX_QUESTIONS = 12
+const MIN_CHAT_MESSAGES = 5
 
 /* =========================================================
    Initial Questions (첫 2문항은 고정 — AI 컨텍스트 시드)
@@ -187,6 +190,69 @@ async function generateAnalysis(history) {
 }
 
 /* =========================================================
+   OpenAI API — Chat Mode Response
+   ========================================================= */
+
+async function generateChatResponse(messages) {
+  if (!OPENAI_API_KEY) return null
+
+  const systemPrompt = `당신은 사이버 보안 학습 상담사입니다. 친근하고 전문적인 톤으로 대화하세요.
+
+목표: 자연스러운 대화를 통해 사용자의 관심 분야, 경험 수준, 학습 목표를 파악합니다.
+
+규칙:
+- 한 번에 1~2개의 질문만 하세요
+- 사용자의 답변에 공감하고 적절한 피드백을 제공하세요
+- 보안, 개발, 인프라, 클라우드 등 IT 학습 분야에 집중하세요
+- 너무 형식적이지 않게, 자연스러운 대화체를 사용하세요
+- 답변은 2~4문장으로 간결하게 유지하세요
+- 사용자가 충분한 정보를 제공했다면 추가 질문보다는 정리/확인을 하세요`
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+        temperature: 0.8,
+        max_tokens: 300,
+      }),
+    })
+
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content?.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/* =========================================================
+   Chat → Q&A History Converter
+   ========================================================= */
+
+function convertChatToHistory(messages) {
+  const history = []
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const assistantMessages = messages.filter((m) => m.role === 'assistant')
+
+  for (let i = 0; i < userMessages.length; i++) {
+    const question = assistantMessages[i]?.content || '자유 대화'
+    const answer = userMessages[i].content
+    history.push({ question, answer })
+  }
+
+  return history
+}
+
+/* =========================================================
    Fallback Analysis (API 없을 때)
    ========================================================= */
 
@@ -233,7 +299,7 @@ function getFallbackAnalysis(history) {
    ========================================================= */
 
 export default function LevelTest() {
-  const [step, setStep] = useState('intro')     // 'intro' | 'quiz' | 'analyzing' | 'results'
+  const [step, setStep] = useState('intro')     // 'intro' | 'quiz' | 'chat' | 'analyzing' | 'results'
   const [qIdx, setQIdx] = useState(0)            // current question index
   const [currentQ, setCurrentQ] = useState(null)  // current question object
   const [history, setHistory] = useState([])      // all Q&A pairs
@@ -246,7 +312,15 @@ export default function LevelTest() {
   const [textInput, setTextInput] = useState('')               // free-text input
   const [showTextInput, setShowTextInput] = useState(false)    // toggle custom text field
 
+  // Chat mode state
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [isChatLoading, setIsChatLoading] = useState(false)
+  const [chatUserMsgCount, setChatUserMsgCount] = useState(0)
+
   const textRef = useRef(null)
+  const chatEndRef = useRef(null)
+  const chatInputRef = useRef(null)
 
   /* ----- Start the test ----- */
   const startTest = () => {
@@ -366,6 +440,46 @@ export default function LevelTest() {
     setStep('results')
   }
 
+  /* ----- Start chat mode ----- */
+  const startChat = async () => {
+    setStep('chat')
+    setChatMessages([])
+    setChatUserMsgCount(0)
+    setIsChatLoading(true)
+
+    const greeting = await generateChatResponse([
+      { role: 'user', content: '안녕하세요, 학습 상담을 시작하고 싶습니다.' },
+    ])
+
+    const firstMsg = greeting || '안녕하세요! 사이버 보안 학습 상담사입니다. 현재 IT 분야에서 어떤 부분에 가장 관심이 있으신가요? 보안, 개발, 인프라 등 편하게 말씀해주세요!'
+    setChatMessages([{ role: 'assistant', content: firstMsg }])
+    setIsChatLoading(false)
+  }
+
+  /* ----- Send chat message ----- */
+  const sendChatMessage = async () => {
+    const msg = chatInput.trim()
+    if (!msg || isChatLoading) return
+
+    const userMsg = { role: 'user', content: msg }
+    const newMessages = [...chatMessages, userMsg]
+    setChatMessages(newMessages)
+    setChatInput('')
+    setChatUserMsgCount((c) => c + 1)
+    setIsChatLoading(true)
+
+    const aiReply = await generateChatResponse(newMessages)
+    const replyMsg = aiReply || '흥미로운 답변이네요! 조금 더 자세히 말씀해주시겠어요?'
+    setChatMessages((prev) => [...prev, { role: 'assistant', content: replyMsg }])
+    setIsChatLoading(false)
+  }
+
+  /* ----- Finish chat → analyze ----- */
+  const finishChat = async () => {
+    const chatHistory = convertChatToHistory(chatMessages)
+    await finishTest(chatHistory)
+  }
+
   /* ----- Reset ----- */
   const resetTest = () => {
     setStep('intro')
@@ -378,6 +492,10 @@ export default function LevelTest() {
     setMultiSelection([])
     setTextInput('')
     setShowTextInput(false)
+    setChatMessages([])
+    setChatInput('')
+    setIsChatLoading(false)
+    setChatUserMsgCount(0)
   }
 
   /* ----- Can submit? ----- */
@@ -393,6 +511,13 @@ export default function LevelTest() {
     if (showTextInput && textRef.current) textRef.current.focus()
   }, [showTextInput])
 
+  /* ----- Auto-scroll chat ----- */
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatMessages, isChatLoading])
+
   /* =========================================================
      RENDER
      ========================================================= */
@@ -407,40 +532,63 @@ export default function LevelTest() {
           {/* ===== Intro ===== */}
           {step === 'intro' && (
             <div style={s.centerWrap}>
-              <Card hover={false} style={s.introCard}>
-                <div style={s.introIconWrap}>
-                  <Target size={48} />
+              <div style={s.introContainer}>
+                {/* Common header */}
+                <div style={s.introHeader}>
+                  <div style={s.introIconWrap}>
+                    <Target size={48} />
+                  </div>
+                  <h1 style={s.introTitle}>AI 레벨테스트</h1>
+                  <p style={s.introDesc}>
+                    AI가 당신의 답변을 분석하여
+                    <br />맞춤형 역량 분석 리포트를 생성합니다.
+                  </p>
+                  {OPENAI_API_KEY && (
+                    <div style={s.aiBadge}>&#10024; AI 적응형 분석 활성화</div>
+                  )}
                 </div>
-                <h1 style={s.introTitle}>AI 레벨테스트</h1>
-                <p style={s.introDesc}>
-                  AI가 당신의 답변을 분석하여
-                  <br />맞춤형 질문을 생성합니다.
-                </p>
-                <p style={s.introSub}>
-                  관심 분야부터 시작하여 점차 깊이 있는 질문으로 이어집니다.
-                  <br />약 5~10분 소요 · 총 {MAX_QUESTIONS}문항
-                </p>
-                <div style={s.introFeatures}>
-                  <div style={s.featureItem}>
-                    <div style={s.featureDot} />
-                    <span>객관식 선택지 + 주관식 입력</span>
-                  </div>
-                  <div style={s.featureItem}>
-                    <div style={s.featureDot} />
-                    <span>AI 적응형 난이도 조절</span>
-                  </div>
-                  <div style={s.featureItem}>
-                    <div style={s.featureDot} />
-                    <span>맞춤형 역량 분석 리포트</span>
-                  </div>
+
+                {/* Option cards */}
+                <div style={s.optionCardsRow}>
+                  {/* Quiz option */}
+                  <Card hover={false} style={s.optionCard} onClick={startTest}>
+                    <div style={s.optionCardIcon}>
+                      <Target size={32} />
+                    </div>
+                    <h3 style={s.optionCardTitle}>AI 적응형 테스트</h3>
+                    <p style={s.optionCardDesc}>
+                      객관식 선택지 + 주관식 입력으로 구성된 체계적인 테스트
+                    </p>
+                    <div style={s.optionCardMeta}>
+                      <span style={s.optionCardTag}>객관식 + 주관식</span>
+                      <span style={s.optionCardTag}>총 {MAX_QUESTIONS}문항</span>
+                    </div>
+                    <div style={s.optionCardAction}>
+                      시작하기 <ChevronRight size={16} />
+                    </div>
+                  </Card>
+
+                  {/* Chat option — only shown when API key exists */}
+                  {OPENAI_API_KEY && (
+                    <Card hover={false} style={s.optionCard} onClick={startChat}>
+                      <div style={{ ...s.optionCardIcon, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08))', color: '#10B981' }}>
+                        <MessageSquare size={32} />
+                      </div>
+                      <h3 style={s.optionCardTitle}>AI 대화형 상담</h3>
+                      <p style={s.optionCardDesc}>
+                        자유로운 대화를 통해 관심 분야와 학습 목표를 구체화
+                      </p>
+                      <div style={s.optionCardMeta}>
+                        <span style={s.optionCardTag}>자유 대화</span>
+                        <span style={s.optionCardTag}>맞춤형 분석</span>
+                      </div>
+                      <div style={{ ...s.optionCardAction, background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        시작하기 <ChevronRight size={16} style={{ color: '#10B981' }} />
+                      </div>
+                    </Card>
+                  )}
                 </div>
-                {OPENAI_API_KEY && (
-                  <div style={s.aiBadge}>&#10024; AI 적응형 분석 활성화</div>
-                )}
-                <Button size="large" onClick={startTest} style={{ marginTop: '24px', width: '100%' }}>
-                  테스트 시작하기 <ChevronRight size={18} />
-                </Button>
-              </Card>
+              </div>
             </div>
           )}
 
@@ -571,6 +719,102 @@ export default function LevelTest() {
                 >
                   여기서 마치고 결과 보기
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* ===== Chat ===== */}
+          {step === 'chat' && (
+            <div style={s.chatWrap}>
+              {/* Chat header */}
+              <div style={s.chatHeader}>
+                <div style={s.chatHeaderLeft}>
+                  <div style={s.chatAvatar}>
+                    <MessageSquare size={20} />
+                  </div>
+                  <div>
+                    <div style={s.chatHeaderName}>AI 학습 상담사</div>
+                    <div style={s.chatHeaderStatus}>
+                      <div style={{ ...s.chatStatusDot, background: isChatLoading ? '#F59E0B' : '#10B981' }} />
+                      {isChatLoading ? '입력중...' : '온라인'}
+                    </div>
+                  </div>
+                </div>
+                {chatUserMsgCount >= MIN_CHAT_MESSAGES && (
+                  <button onClick={finishChat} style={s.chatAnalyzeBtn}>
+                    분석 시작 <ChevronRight size={16} />
+                  </button>
+                )}
+              </div>
+
+              {/* Chat messages */}
+              <div style={s.chatMessagesArea}>
+                {chatMessages.map((msg, i) => (
+                  <div key={i} style={msg.role === 'user' ? s.chatBubbleRowUser : s.chatBubbleRowAi}>
+                    {msg.role === 'assistant' && (
+                      <div style={s.chatBubbleAvatar}>
+                        <MessageSquare size={14} />
+                      </div>
+                    )}
+                    <div style={msg.role === 'user' ? s.chatBubbleUser : s.chatBubbleAi}>
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Typing indicator */}
+                {isChatLoading && (
+                  <div style={s.chatBubbleRowAi}>
+                    <div style={s.chatBubbleAvatar}>
+                      <MessageSquare size={14} />
+                    </div>
+                    <div style={s.chatBubbleAi}>
+                      <div style={s.chatTypingDots}>
+                        <div style={{ ...s.dot, animationDelay: '0s' }} />
+                        <div style={{ ...s.dot, animationDelay: '0.2s' }} />
+                        <div style={{ ...s.dot, animationDelay: '0.4s' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat input bar */}
+              <div style={s.chatInputBar}>
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      sendChatMessage()
+                    }
+                  }}
+                  placeholder="메시지를 입력하세요..."
+                  disabled={isChatLoading}
+                  style={s.chatInputField}
+                />
+                <button
+                  onClick={sendChatMessage}
+                  disabled={isChatLoading || !chatInput.trim()}
+                  style={{
+                    ...s.chatSendBtn,
+                    opacity: isChatLoading || !chatInput.trim() ? 0.5 : 1,
+                  }}
+                >
+                  <Send size={18} />
+                </button>
+              </div>
+
+              {/* Message count hint */}
+              {chatUserMsgCount < MIN_CHAT_MESSAGES && (
+                <div style={s.chatHint}>
+                  분석 시작까지 {MIN_CHAT_MESSAGES - chatUserMsgCount}개 메시지 더 필요합니다
+                </div>
               )}
             </div>
           )}
@@ -813,11 +1057,13 @@ const s = {
   },
 
   /* ====== Intro ====== */
-  introCard: {
-    maxWidth: '480px',
+  introContainer: {
+    maxWidth: '720px',
     width: '100%',
+  },
+  introHeader: {
     textAlign: 'center',
-    padding: '48px 40px',
+    marginBottom: '32px',
   },
   introIconWrap: {
     width: '80px',
@@ -845,38 +1091,6 @@ const s = {
     lineHeight: 1.7,
     marginBottom: '8px',
   },
-  introSub: {
-    color: '#64748B',
-    fontSize: '0.85rem',
-    lineHeight: 1.7,
-    marginBottom: '20px',
-  },
-  introFeatures: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    marginBottom: '16px',
-    textAlign: 'left',
-    padding: '16px 20px',
-    borderRadius: '12px',
-    background: '#F8FAFC',
-    border: '1px solid #F1F5F9',
-  },
-  featureItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '0.85rem',
-    color: '#475569',
-    fontWeight: 500,
-  },
-  featureDot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: '50%',
-    background: '#4F46E5',
-    flexShrink: 0,
-  },
   aiBadge: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -888,6 +1102,236 @@ const s = {
     fontSize: '0.8rem',
     fontWeight: 600,
     border: '1px solid rgba(16,185,129,0.15)',
+  },
+
+  /* ====== Intro Option Cards ====== */
+  optionCardsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '20px',
+  },
+  optionCard: {
+    padding: '32px 28px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+    border: '1.5px solid #E2E8F0',
+  },
+  optionCardIcon: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '16px',
+    background: 'linear-gradient(135deg, rgba(79,70,229,0.12), rgba(6,182,212,0.08))',
+    color: '#818CF8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 16px',
+  },
+  optionCardTitle: {
+    fontSize: '1.1rem',
+    fontWeight: 700,
+    color: '#0F172A',
+    marginBottom: '8px',
+  },
+  optionCardDesc: {
+    color: '#64748B',
+    fontSize: '0.85rem',
+    lineHeight: 1.6,
+    marginBottom: '16px',
+  },
+  optionCardMeta: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '8px',
+    marginBottom: '20px',
+  },
+  optionCardTag: {
+    padding: '4px 10px',
+    borderRadius: '100px',
+    background: '#F1F5F9',
+    color: '#64748B',
+    fontSize: '0.75rem',
+    fontWeight: 500,
+  },
+  optionCardAction: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+
+  /* ====== Chat ====== */
+  chatWrap: {
+    maxWidth: '640px',
+    margin: '0 auto',
+    padding: '24px 16px 32px',
+    display: 'flex',
+    flexDirection: 'column',
+    height: 'calc(100vh - 72px - 64px)',
+  },
+  chatHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 20px',
+    background: '#fff',
+    border: '1px solid #E2E8F0',
+    borderRadius: '16px 16px 0 0',
+    borderBottom: 'none',
+  },
+  chatHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  chatAvatar: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatHeaderName: {
+    fontSize: '0.95rem',
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  chatHeaderStatus: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '0.75rem',
+    color: '#94A3B8',
+    fontWeight: 500,
+  },
+  chatStatusDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+  },
+  chatAnalyzeBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '8px 16px',
+    borderRadius: '10px',
+    border: 'none',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    color: '#fff',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'opacity 0.15s ease',
+  },
+  chatMessagesArea: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '24px 20px',
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderTop: 'none',
+    borderBottom: 'none',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  chatBubbleRowAi: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '8px',
+    maxWidth: '80%',
+  },
+  chatBubbleRowUser: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    maxWidth: '80%',
+    marginLeft: 'auto',
+  },
+  chatBubbleAvatar: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '8px',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  chatBubbleAi: {
+    padding: '12px 16px',
+    borderRadius: '4px 16px 16px 16px',
+    background: '#fff',
+    border: '1px solid #E2E8F0',
+    color: '#0F172A',
+    fontSize: '0.88rem',
+    lineHeight: 1.6,
+    fontWeight: 500,
+  },
+  chatBubbleUser: {
+    padding: '12px 16px',
+    borderRadius: '16px 4px 16px 16px',
+    background: 'linear-gradient(135deg, #4F46E5, #6366F1)',
+    color: '#fff',
+    fontSize: '0.88rem',
+    lineHeight: 1.6,
+    fontWeight: 500,
+  },
+  chatTypingDots: {
+    display: 'flex',
+    gap: '6px',
+    padding: '4px 0',
+  },
+  chatInputBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '16px 20px',
+    background: '#fff',
+    border: '1px solid #E2E8F0',
+    borderRadius: '0 0 16px 16px',
+  },
+  chatInputField: {
+    flex: 1,
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: '1.5px solid #E2E8F0',
+    background: '#F8FAFC',
+    color: '#0F172A',
+    fontSize: '0.88rem',
+    fontFamily: 'inherit',
+    outline: 'none',
+    transition: 'border-color 0.15s ease',
+  },
+  chatSendBtn: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '12px',
+    border: 'none',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'opacity 0.15s ease',
+    flexShrink: 0,
+  },
+  chatHint: {
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    marginTop: '12px',
   },
 
   /* ====== Quiz ====== */

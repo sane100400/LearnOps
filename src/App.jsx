@@ -9,6 +9,7 @@ import Lab from './pages/Lab'
 import Ranking from './pages/Ranking'
 import StudyGroup from './pages/StudyGroup'
 import CurriculumGenerate from './pages/CurriculumGenerate'
+import Admin from './pages/Admin'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/ranking" element={<Ranking />} />
       <Route path="/study-group" element={<StudyGroup />} />
       <Route path="/curriculum-generate" element={<CurriculumGenerate />} />
+      <Route path="/admin" element={<Admin />} />
     </Routes>
   )
 }

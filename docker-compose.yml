@@ -2,17 +2,14 @@ services:
   vuln-db:
     image: learnops-vuln-db
     build:
-      context: .
-      dockerfile_inline: |
-        FROM mysql:8.0
+      context: ./docker/vuln-db
+      dockerfile: Dockerfile
     container_name: learnops-vuln-db-dev
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: vuln_db
       MYSQL_USER: vuln_user
       MYSQL_PASSWORD: vuln_pass
-    volumes:
-      - ./docker/vuln-app/src/setup.sql:/docker-entrypoint-initdb.d/setup.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s

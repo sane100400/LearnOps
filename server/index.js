@@ -15,10 +15,15 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 const app = express();
 const server = createServer(app);
 
-// Middleware
-app.use(helmet({ contentSecurityPolicy: false }));
+// Middleware — skip helmet for lab proxy (iframe embedding)
+const helmetMiddleware = helmet({ contentSecurityPolicy: false });
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/lab/proxy')) return next();
+  helmetMiddleware(req, res, next);
+});
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Rate limiter for lab API (10 requests per minute)
 const labLimiter = rateLimit({

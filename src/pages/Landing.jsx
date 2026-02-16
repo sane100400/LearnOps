@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
 import {
   Brain,
   Route,
@@ -10,21 +11,56 @@ import {
   Trophy,
   Users,
   BarChart3,
-  Check,
   Sparkles,
-  Shield,
+  Rocket,
   Zap,
+  Shield,
+  Code2,
+  Cloud,
+  Database,
+  Globe,
+  Smartphone,
+  Lock,
+  GitBranch,
+  BarChart,
+  Layers,
 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import Footer from '../components/Footer'
 
+/* =========================================================
+   Floating Categories
+   ========================================================= */
+
+const floatingCategories = [
+  { label: '웹 개발', icon: Globe, color: '#4F46E5', x: '8%', y: '18%', delay: 0, size: 'lg' },
+  { label: '사이버 보안', icon: Shield, color: '#EF4444', x: '82%', y: '12%', delay: 1.2, size: 'lg' },
+  { label: '클라우드', icon: Cloud, color: '#06B6D4', x: '88%', y: '55%', delay: 0.6, size: 'md' },
+  { label: 'AI / ML', icon: Brain, color: '#8B5CF6', x: '5%', y: '62%', delay: 1.8, size: 'md' },
+  { label: 'DevOps', icon: GitBranch, color: '#F59E0B', x: '75%', y: '78%', delay: 2.4, size: 'sm' },
+  { label: '데이터 분석', icon: BarChart, color: '#10B981', x: '15%', y: '82%', delay: 0.3, size: 'sm' },
+  { label: '모바일', icon: Smartphone, color: '#EC4899', x: '92%', y: '35%', delay: 1.5, size: 'sm' },
+  { label: '백엔드', icon: Database, color: '#0EA5E9', x: '2%', y: '40%', delay: 2.1, size: 'sm' },
+  { label: '프론트엔드', icon: Code2, color: '#F97316', x: '70%', y: '5%', delay: 0.9, size: 'sm' },
+  { label: '인프라', icon: Layers, color: '#14B8A6', x: '25%', y: '5%', delay: 2.7, size: 'sm' },
+  { label: '블록체인', icon: Lock, color: '#6366F1', x: '60%', y: '85%', delay: 3.0, size: 'sm' },
+]
+
+const sizeMap = { lg: 52, md: 44, sm: 36 }
+const fontMap = { lg: '0.82rem', md: '0.75rem', sm: '0.7rem' }
+const iconSizeMap = { lg: 18, md: 15, sm: 13 }
+
+/* =========================================================
+   Data
+   ========================================================= */
+
 const features = [
   {
     icon: Brain,
     title: 'AI 레벨테스트',
-    desc: 'AI가 당신의 보안 역량을 정밀 분석하여 현재 수준을 진단합니다.',
+    desc: 'AI가 당신의 IT 역량을 정밀 분석하여 현재 수준과 적합한 학습 분야를 진단합니다.',
     color: '#4F46E5',
   },
   {
@@ -36,7 +72,7 @@ const features = [
   {
     icon: Server,
     title: '실습환경 자동생성',
-    desc: '클릭 한 번으로 격리된 보안 실습 환경을 즉시 생성합니다.',
+    desc: '클릭 한 번으로 격리된 실습 환경을 즉시 생성하여 바로 학습할 수 있습니다.',
     color: '#10B981',
   },
 ]
@@ -48,35 +84,10 @@ const steps = [
   { icon: Trophy, title: '성장 확인', desc: '랭킹 & 업적 달성' },
 ]
 
-const plans = [
-  {
-    name: 'Free',
-    price: '₩0',
-    period: '/월',
-    desc: '보안 학습을 시작하는 입문자',
-    features: ['AI 레벨테스트 1회', '기본 커리큘럼', '실습 환경 2개', '커뮤니티 접근'],
-    cta: '무료로 시작',
-    highlight: false,
-  },
-  {
-    name: 'Pro',
-    price: '₩29,900',
-    period: '/월',
-    desc: '체계적으로 역량을 키우고 싶은 학습자',
-    features: ['무제한 레벨테스트', 'AI 맞춤 커리큘럼', '무제한 실습 환경', '스터디 그룹 매칭', '우선 기술 지원'],
-    cta: 'Pro 시작하기',
-    highlight: true,
-  },
-  {
-    name: 'Enterprise',
-    price: '문의',
-    period: '',
-    desc: '팀/조직 단위 보안 교육이 필요한 기업',
-    features: ['모든 Pro 기능', '관리자 대시보드', '맞춤 커리큘럼 설계', 'SSO & SCIM', '전담 매니저'],
-    cta: '영업팀 문의',
-    highlight: false,
-  },
-]
+
+/* =========================================================
+   Component
+   ========================================================= */
 
 export default function Landing() {
   return (
@@ -86,14 +97,60 @@ export default function Landing() {
         {/* Hero */}
         <section style={styles.hero}>
           <div style={styles.heroBg} />
-          <div className="container" style={{ position: 'relative', zIndex: 1 }}>
+          <div style={styles.heroBg2} />
+
+          {/* Floating category bubbles */}
+          {floatingCategories.map((cat, i) => (
+            <div
+              key={i}
+              className="floating-bubble"
+              style={{
+                ...styles.floatingBubble,
+                left: cat.x,
+                top: cat.y,
+                animationDelay: `${cat.delay}s`,
+                animationDuration: `${6 + (i % 3) * 2}s`,
+              }}
+            >
+              <div
+                style={{
+                  ...styles.floatingInner,
+                  background: `${cat.color}10`,
+                  border: `1px solid ${cat.color}25`,
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.floatingIcon,
+                    width: `${sizeMap[cat.size]}px`,
+                    height: `${sizeMap[cat.size]}px`,
+                    background: `${cat.color}18`,
+                    color: cat.color,
+                  }}
+                >
+                  <cat.icon size={iconSizeMap[cat.size]} />
+                </div>
+                <span
+                  style={{
+                    ...styles.floatingLabel,
+                    fontSize: fontMap[cat.size],
+                    color: cat.color,
+                  }}
+                >
+                  {cat.label}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          <div className="container" style={{ position: 'relative', zIndex: 2 }}>
             <div style={styles.heroContent}>
               <div style={styles.badge}>
                 <Sparkles size={14} />
-                <span>AI 기반 보안 학습 플랫폼</span>
+                <span>AI 기반 IT 학습 플랫폼</span>
               </div>
               <h1 style={styles.heroTitle}>
-                보안 실력을 레벨업하는<br />
+                IT 실력을 레벨업하는<br />
                 <span className="gradient-text">가장 스마트한 방법</span>
               </h1>
               <p style={styles.heroDesc}>
@@ -166,7 +223,7 @@ export default function Landing() {
           <div className="container">
             <div style={{ textAlign: 'center', marginBottom: '64px' }}>
               <h2 className="section-title">How It Works</h2>
-              <p className="section-subtitle">4단계로 완성하는 보안 학습</p>
+              <p className="section-subtitle">4단계로 완성하는 IT 학습</p>
             </div>
             <div style={styles.stepsGrid}>
               {steps.map((s, i) => (
@@ -218,74 +275,15 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Pricing */}
-        <section style={{ ...styles.section, background: '#F8FAFC' }}>
-          <div className="container">
-            <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-              <h2 className="section-title">
-                <span className="gradient-text">가격 플랜</span>
-              </h2>
-              <p className="section-subtitle">나에게 맞는 플랜을 선택하세요</p>
-            </div>
-            <div style={styles.pricingGrid}>
-              {plans.map((plan, i) => (
-                <Card
-                  key={i}
-                  style={{
-                    padding: '40px 32px',
-                    ...(plan.highlight
-                      ? {
-                          border: '1px solid rgba(79, 70, 229, 0.4)',
-                          boxShadow: '0 0 40px rgba(79, 70, 229, 0.15)',
-                          position: 'relative',
-                        }
-                      : {}),
-                  }}
-                >
-                  {plan.highlight && (
-                    <div style={styles.popularBadge}>인기</div>
-                  )}
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>
-                    {plan.name}
-                  </h3>
-                  <div style={styles.price}>
-                    <span style={{ fontSize: '2.5rem', fontWeight: 800 }}>{plan.price}</span>
-                    <span style={{ color: '#64748B' }}>{plan.period}</span>
-                  </div>
-                  <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '24px' }}>
-                    {plan.desc}
-                  </p>
-                  <ul style={styles.planFeatures}>
-                    {plan.features.map((f, fi) => (
-                      <li key={fi} style={styles.planFeature}>
-                        <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link to="/register">
-                    <Button
-                      variant={plan.highlight ? 'primary' : 'secondary'}
-                      style={{ width: '100%', marginTop: '24px' }}
-                    >
-                      {plan.cta}
-                    </Button>
-                  </Link>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* CTA */}
         <section style={styles.ctaSection}>
           <div className="container" style={{ textAlign: 'center' }}>
-            <Shield size={48} style={{ color: '#4F46E5', marginBottom: '24px' }} />
+            <Rocket size={48} style={{ color: '#4F46E5', marginBottom: '24px' }} />
             <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '16px' }}>
               지금 바로 시작하세요
             </h2>
             <p style={{ color: '#64748B', fontSize: '1.1rem', marginBottom: '32px' }}>
-              무료 레벨테스트로 나의 보안 역량을 확인해보세요.
+              무료 레벨테스트로 나의 IT 역량을 확인해보세요.
             </p>
             <Link to="/register">
               <Button size="large">
@@ -296,9 +294,53 @@ export default function Landing() {
         </section>
       </main>
       <Footer />
+      <FloatingStyles />
     </div>
   )
 }
+
+/* =========================================================
+   Floating animation styles (injected once)
+   ========================================================= */
+
+function FloatingStyles() {
+  useEffect(() => {
+    if (document.querySelector('[data-lo-float]')) return
+    const el = document.createElement('style')
+    el.setAttribute('data-lo-float', '')
+    el.textContent = `
+      @keyframes floatY {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-18px); }
+      }
+      @keyframes floatFadeIn {
+        from { opacity: 0; transform: translateY(20px) scale(0.85); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .floating-bubble {
+        animation: floatY 6s ease-in-out infinite, floatFadeIn 0.8s ease-out both;
+      }
+      .floating-bubble:hover {
+        animation-play-state: paused;
+        transform: scale(1.08) !important;
+      }
+      @media (max-width: 768px) {
+        .floating-bubble { display: none !important; }
+        .page-content section h1 { font-size: 2rem !important; }
+      }
+    `
+    document.head.appendChild(el)
+    return () => {
+      const existing = document.querySelector('[data-lo-float]')
+      if (existing) existing.remove()
+    }
+  }, [])
+  return null
+}
+
+/* =========================================================
+   Styles
+   ========================================================= */
 
 const styles = {
   hero: {
@@ -313,6 +355,16 @@ const styles = {
     width: '800px',
     height: '800px',
     background: 'radial-gradient(circle, rgba(79,70,229,0.08) 0%, transparent 70%)',
+    borderRadius: '50%',
+    pointerEvents: 'none',
+  },
+  heroBg2: {
+    position: 'absolute',
+    bottom: '-40%',
+    left: '-15%',
+    width: '600px',
+    height: '600px',
+    background: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%)',
     borderRadius: '50%',
     pointerEvents: 'none',
   },
@@ -382,6 +434,36 @@ const styles = {
     height: '40px',
     background: '#E2E8F0',
   },
+
+  /* Floating bubbles */
+  floatingBubble: {
+    position: 'absolute',
+    zIndex: 1,
+    pointerEvents: 'auto',
+    cursor: 'default',
+    transition: 'transform 0.3s ease',
+  },
+  floatingInner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 14px 8px 8px',
+    borderRadius: '100px',
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  },
+  floatingIcon: {
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  floatingLabel: {
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+  },
+
   section: {
     padding: '100px 0',
   },
@@ -460,54 +542,7 @@ const styles = {
     gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '24px',
   },
-  pricingGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '24px',
-    alignItems: 'start',
-  },
-  price: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: '4px',
-    marginBottom: '8px',
-  },
-  planFeatures: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-  },
-  planFeature: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    color: '#334155',
-    fontSize: '0.9rem',
-  },
-  popularBadge: {
-    position: 'absolute',
-    top: '-12px',
-    right: '24px',
-    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
-    color: '#fff',
-    padding: '4px 16px',
-    borderRadius: '100px',
-    fontSize: '0.8rem',
-    fontWeight: 700,
-  },
   ctaSection: {
     padding: '100px 0',
   },
-}
-
-const landingStyle = document.createElement('style')
-landingStyle.textContent = `
-  @media (max-width: 768px) {
-    .page-content section h1 { font-size: 2rem !important; }
-    .page-content section .hero-desc { font-size: 1rem !important; }
-  }
-`
-if (!document.querySelector('[data-learnops-landing]')) {
-  landingStyle.setAttribute('data-learnops-landing', '')
-  document.head.appendChild(landingStyle)
 }
