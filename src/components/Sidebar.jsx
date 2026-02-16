@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, GraduationCap, BookOpen, Terminal,
+  LayoutDashboard, GraduationCap, BookOpen,
   Trophy, Users, Settings, ChevronLeft, Menu, Cpu, Shield,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -10,7 +10,6 @@ const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: '대시보드' },
   { path: '/level-test', icon: GraduationCap, label: '레벨테스트' },
   { path: '/curriculum', icon: BookOpen, label: '커리큘럼' },
-  { path: '/lab', icon: Terminal, label: '실습 환경' },
   { path: '/ranking', icon: Trophy, label: '랭킹' },
   { path: '/study-group', icon: Users, label: '스터디 그룹' },
   { path: '/curriculum-generate', icon: Cpu, label: '커리큘럼 생성' },

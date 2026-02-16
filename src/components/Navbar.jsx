@@ -7,7 +7,6 @@ const navLinks = [
   { path: '/dashboard', label: '대시보드' },
   { path: '/level-test', label: '레벨테스트' },
   { path: '/curriculum', label: '커리큘럼' },
-  { path: '/lab', label: '실습' },
   { path: '/ranking', label: '랭킹' },
   { path: '/study-group', label: '스터디' },
 ]
