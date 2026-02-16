@@ -64,7 +64,8 @@ export default function Lab() {
   const [activeTab, setActiveTab] = useState(LAB_TYPE === 'web' ? 'web' : 'terminal')
   const [showHint, setShowHint] = useState(false)
   const [hintLevel, setHintLevel] = useState(0)
-  const [timeLeft] = useState(1800)
+  const [timeLeft, setTimeLeft] = useState(1800)
+  const timerRef = useRef(null)
   const [submitted, setSubmitted] = useState(false)
   const [labCleared, setLabCleared] = useState(false)
 
@@ -77,6 +78,24 @@ export default function Lab() {
   // Container management
   const { status, error, start, stop, restart } = useContainerStatus(SESSION_ID)
   const isRunning = status === 'running'
+
+  // 타이머 카운트다운 (실행 중일 때만)
+  useEffect(() => {
+    if (isRunning && !labCleared) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerRef.current)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [isRunning, labCleared])
 
   // WebSocket connection
   useLabWebSocket(termReady ? terminalRef.current : null, SESSION_ID, isRunning)

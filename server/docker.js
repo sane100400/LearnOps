@@ -89,107 +89,105 @@ export async function startLab(sessionId) {
     Internal: false,
   });
 
-  // 2. Start MySQL
-  const db = await docker.createContainer({
-    Image: 'learnops-vuln-db',
-    name: `${LABEL_PREFIX}-db-${sessionId}`,
-    Labels: labels,
-    Env: [
-      'MYSQL_ROOT_PASSWORD=rootpass',
-      'MYSQL_DATABASE=vuln_db',
-      'MYSQL_USER=vuln_user',
-      'MYSQL_PASSWORD=vuln_pass',
-    ],
-    HostConfig: {
-      ...CONTAINER_LIMITS,
-      NetworkMode: networkName,
-      CapDrop: ['ALL'],
-      CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
-    },
-    NetworkingConfig: {
-      EndpointsConfig: {
-        [networkName]: { Aliases: ['vuln-db'] },
+  // 2. 컨테이너 3개 동시 생성
+  const [db, vulnApp, attacker] = await Promise.all([
+    docker.createContainer({
+      Image: 'learnops-vuln-db',
+      name: `${LABEL_PREFIX}-db-${sessionId}`,
+      Labels: labels,
+      Env: [
+        'MYSQL_ROOT_PASSWORD=rootpass',
+        'MYSQL_DATABASE=vuln_db',
+        'MYSQL_USER=vuln_user',
+        'MYSQL_PASSWORD=vuln_pass',
+      ],
+      HostConfig: {
+        ...CONTAINER_LIMITS,
+        NetworkMode: networkName,
+        CapDrop: ['ALL'],
+        CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
       },
-    },
-  });
-  await db.start();
+      NetworkingConfig: {
+        EndpointsConfig: { [networkName]: { Aliases: ['vuln-db'] } },
+      },
+    }),
+    docker.createContainer({
+      Image: 'learnops-vuln-app',
+      name: `${LABEL_PREFIX}-app-${sessionId}`,
+      Labels: labels,
+      Env: [
+        'DB_HOST=vuln-db',
+        'DB_USER=vuln_user',
+        'DB_PASS=vuln_pass',
+        'DB_NAME=vuln_db',
+      ],
+      HostConfig: {
+        ...CONTAINER_LIMITS,
+        NetworkMode: networkName,
+        CapDrop: ['ALL'],
+      },
+      NetworkingConfig: {
+        EndpointsConfig: { [networkName]: { Aliases: ['target-app'] } },
+      },
+    }),
+    docker.createContainer({
+      Image: 'learnops-attacker',
+      name: `${LABEL_PREFIX}-attacker-${sessionId}`,
+      Labels: labels,
+      Tty: true,
+      OpenStdin: true,
+      Cmd: ['/bin/bash'],
+      User: 'learner',
+      WorkingDir: '/home/learner/workspace',
+      HostConfig: {
+        ...CONTAINER_LIMITS,
+        NetworkMode: networkName,
+        CapDrop: ['ALL'],
+        CapAdd: ['NET_RAW'],
+      },
+      NetworkingConfig: {
+        EndpointsConfig: { [networkName]: { Aliases: ['attacker'] } },
+      },
+    }),
+  ]);
 
-  // 3. Start vulnerable app
-  const vulnApp = await docker.createContainer({
-    Image: 'learnops-vuln-app',
-    name: `${LABEL_PREFIX}-app-${sessionId}`,
-    Labels: labels,
-    Env: [
-      'DB_HOST=vuln-db',
-      'DB_USER=vuln_user',
-      'DB_PASS=vuln_pass',
-      'DB_NAME=vuln_db',
-    ],
-    HostConfig: {
-      ...CONTAINER_LIMITS,
-      NetworkMode: networkName,
-      CapDrop: ['ALL'],
-    },
-    NetworkingConfig: {
-      EndpointsConfig: {
-        [networkName]: { Aliases: ['target-app'] },
-      },
-    },
-  });
-  await vulnApp.start();
-
-  // 4. Start attacker container
-  const attacker = await docker.createContainer({
-    Image: 'learnops-attacker',
-    name: `${LABEL_PREFIX}-attacker-${sessionId}`,
-    Labels: labels,
-    Tty: true,
-    OpenStdin: true,
-    Cmd: ['/bin/bash'],
-    User: 'learner',
-    WorkingDir: '/home/learner/workspace',
-    HostConfig: {
-      ...CONTAINER_LIMITS,
-      NetworkMode: networkName,
-      CapDrop: ['ALL'],
-      CapAdd: ['NET_RAW'], // for ping
-    },
-    NetworkingConfig: {
-      EndpointsConfig: {
-        [networkName]: { Aliases: ['attacker'] },
-      },
-    },
-  });
-  await attacker.start();
+  // 3. 동시 시작
+  await Promise.all([db.start(), vulnApp.start(), attacker.start()]);
 
   sessions.set(sessionId, {
     network,
     containers: { attacker, vulnApp, db },
     networkName,
+    dbReady: false,
   });
 
-  // MySQL 준비 대기: healthcheck 폴링 (최대 30초, 고정 20초 대기 대신)
-  const maxWait = 30000;
-  const interval = 1000;
-  const start = Date.now();
-  while (Date.now() - start < maxWait) {
-    try {
-      const exec = await db.exec({
-        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
-        AttachStdout: true,
-        AttachStderr: true,
-      });
-      const stream = await exec.start({ Detach: false, Tty: false });
-      const output = await new Promise((resolve) => {
-        let buf = '';
-        stream.on('data', (chunk) => { buf += chunk.toString(); });
-        stream.on('end', () => resolve(buf));
-        stream.on('error', () => resolve(''));
-      });
-      if (output.includes('alive')) break;
-    } catch { /* container not ready yet */ }
-    await new Promise((r) => setTimeout(r, interval));
-  }
+  // 4. MySQL 준비 체크를 백그라운드로 (API 응답은 즉시 반환)
+  (async () => {
+    const maxWait = 30000;
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxWait) {
+      try {
+        const exec = await db.exec({
+          Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
+          AttachStdout: true, AttachStderr: true,
+        });
+        const stream = await exec.start({ Detach: false, Tty: false });
+        const output = await new Promise((resolve) => {
+          let buf = '';
+          stream.on('data', (chunk) => { buf += chunk.toString(); });
+          stream.on('end', () => resolve(buf));
+          stream.on('error', () => resolve(''));
+        });
+        if (output.includes('alive')) {
+          const s = sessions.get(sessionId);
+          if (s) s.dbReady = true;
+          console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
+          break;
+        }
+      } catch { /* not ready */ }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  })();
 
   return { status: 'started' };
 }
