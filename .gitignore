@@ -3,3 +3,5 @@ dist
 .env
 server/node_modules
 state.yaml
+*.key
+*.key:Zone.Identifier
