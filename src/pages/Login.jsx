@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, Github, Eye, EyeOff } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import Button from '../components/Button'
 
@@ -8,9 +9,23 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const { login } = useAuth()
+  const navigate = useNavigate()
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    setError('')
+    if (!email) {
+      setError('이메일을 입력해주세요.')
+      return
+    }
+    const success = login(email)
+    if (success) {
+      navigate('/dashboard')
+    } else {
+      setError('등록되지 않은 이메일입니다.')
+    }
   }
 
   return (
@@ -30,6 +45,14 @@ export default function Login() {
 
           <h1 style={styles.title}>다시 오신 것을 환영합니다</h1>
           <p style={styles.subtitle}>계정에 로그인하여 학습을 계속하세요</p>
+
+          {error && (
+            <div style={styles.errorBox}>{error}</div>
+          )}
+
+          <div style={styles.hintBox}>
+            데모 계정: <strong>boahn.kim@example.com</strong> (비밀번호 아무거나)
+          </div>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             {/* Email */}
@@ -207,7 +230,27 @@ const styles = {
     fontSize: '0.9rem',
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: '32px',
+    marginBottom: '16px',
+  },
+  errorBox: {
+    padding: '12px 16px',
+    borderRadius: '10px',
+    background: '#FEF2F2',
+    border: '1px solid #FECACA',
+    color: '#DC2626',
+    fontSize: '0.85rem',
+    textAlign: 'center',
+    marginBottom: '8px',
+  },
+  hintBox: {
+    padding: '12px 16px',
+    borderRadius: '10px',
+    background: '#F0F9FF',
+    border: '1px solid #BAE6FD',
+    color: '#0369A1',
+    fontSize: '0.8rem',
+    textAlign: 'center',
+    marginBottom: '16px',
   },
   form: {
     display: 'flex',

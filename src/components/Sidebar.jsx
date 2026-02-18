@@ -4,7 +4,7 @@ import {
   Trophy, Users, Settings, ChevronLeft, Menu, Cpu, Shield,
 } from 'lucide-react'
 import { useState } from 'react'
-import { currentUser } from '../data/users'
+import { useAuth } from '../context/AuthContext'
 
 const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: '대시보드' },
@@ -20,6 +20,7 @@ export default function Sidebar() {
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user: currentUser } = useAuth()
 
   return (
     <>

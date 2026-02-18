@@ -1,13 +1,3 @@
-export const currentUser = {
-  id: 1,
-  name: '김보안',
-  email: 'boahn.kim@example.com',
-  role: 'operator',
-  level: '고급',
-  avatar: '김',
-  gradient: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
-}
-
 export const dummyUsers = [
   {
     id: 1,

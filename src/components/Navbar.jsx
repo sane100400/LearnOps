@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, Bell, ChevronDown, LogOut } from 'lucide-react'
-import { currentUser } from '../data/users'
+import { useAuth } from '../context/AuthContext'
 
 const navLinks = [
   { path: '/dashboard', label: '대시보드' },
@@ -15,6 +15,14 @@ export default function Navbar({ minimal = false }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user: currentUser, logout } = useAuth()
+
+  const handleLogout = () => {
+    setProfileOpen(false)
+    logout()
+    navigate('/login')
+  }
 
   return (
     <nav style={styles.nav}>
@@ -24,7 +32,7 @@ export default function Navbar({ minimal = false }) {
           <span style={styles.logoText}>LearnOps</span>
         </Link>
 
-        {!minimal && (
+        {!minimal && currentUser && (
           <>
             <div style={styles.links}>
               {navLinks.map((link) => (
@@ -67,9 +75,9 @@ export default function Navbar({ minimal = false }) {
                     </div>
                     <div style={styles.dropdownDivider} />
                     <Link to="/dashboard" style={styles.dropdownItem} onClick={() => setProfileOpen(false)}>대시보드</Link>
-                    <Link to="/login" style={styles.dropdownItem} onClick={() => setProfileOpen(false)}>
+                    <button style={{ ...styles.dropdownItem, background: 'none', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }} onClick={handleLogout}>
                       <LogOut size={14} /> 로그아웃
-                    </Link>
+                    </button>
                   </div>
                 )}
               </div>
