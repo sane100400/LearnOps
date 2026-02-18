@@ -120,9 +120,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/흥미'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 IT 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['프로그래밍/개발', '서버/네트워크 관리', '보안 관련 업무나 학습'],
+        type: 'single-with-text',
+        question: '현재 보안 관련 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (IT 기초부터 시작)', '기본 개념은 알지만 실습 경험은 부족해요', '실무나 프로젝트 경험이 있어요 (CTF, 보안 업무 등)'],
       },
       {
         type: 'single-with-text',
@@ -137,9 +137,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/사이드 프로젝트'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['HTML/CSS 기초', 'JavaScript/TypeScript', 'React, Vue 등 프레임워크'],
+        type: 'single-with-text',
+        question: '현재 프론트엔드 개발 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (HTML/CSS부터 시작)', 'HTML/CSS, JS 기초는 알지만 프레임워크는 처음이에요', 'React/Vue 등 프레임워크로 프로젝트 경험이 있어요'],
       },
       {
         type: 'single-with-text',
@@ -154,9 +154,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화', '개인 서비스/프로젝트 구축'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['프로그래밍 언어 (Java, Python, Node.js 등)', '데이터베이스 (SQL, NoSQL)', 'API 설계 및 서버 운영'],
+        type: 'single-with-text',
+        question: '현재 백엔드 개발 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (프로그래밍 기초부터 시작)', '언어/DB 기초는 알지만 서버 구축 경험은 부족해요', 'API 개발이나 서버 운영 경험이 있어요'],
       },
       {
         type: 'single-with-text',
@@ -171,9 +171,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화 (DevOps 전환)', '개인적 호기심/학습'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 인프라 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['리눅스/서버 관리', '클라우드 서비스 (AWS, GCP, Azure)', 'Docker/컨테이너 기술'],
+        type: 'single-with-text',
+        question: '현재 인프라/클라우드 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (리눅스 기초부터 시작)', '리눅스/네트워크 기초는 알지만 클라우드는 처음이에요', '클라우드 서비스나 DevOps 실무 경험이 있어요'],
       },
       {
         type: 'single-with-text',
@@ -188,9 +188,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/연구'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 데이터 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['Python/R 프로그래밍', 'SQL/데이터 분석', '머신러닝/딥러닝 모델링'],
+        type: 'single-with-text',
+        question: '현재 데이터/AI 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (Python 기초부터 시작)', 'Python/SQL 기초는 알지만 분석 경험은 부족해요', 'ML 모델링이나 데이터 분석 프로젝트 경험이 있어요'],
       },
       {
         type: 'single-with-text',
@@ -205,9 +205,9 @@ function getInitialQuestions(field) {
         options: ['취업/이직 준비', '현업 역량 강화', '개인 앱 출시/사이드 프로젝트'],
       },
       {
-        type: 'multi-with-text',
-        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-        options: ['프로그래밍 언어 (Swift, Kotlin, Dart 등)', '모바일 앱 개발 경험', '웹 개발 (JavaScript/React 등)'],
+        type: 'single-with-text',
+        question: '현재 모바일 개발 경험 수준은 어느 정도인가요?',
+        options: ['완전 처음이에요 (프로그래밍 기초부터 시작)', '프로그래밍 기초는 알지만 앱 개발은 처음이에요', '앱을 직접 만들어보거나 출시 경험이 있어요'],
       },
       {
         type: 'single-with-text',
