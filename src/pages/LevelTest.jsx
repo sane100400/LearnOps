@@ -851,7 +851,21 @@ export default function LevelTest() {
   const finishTest = async (finalHistory) => {
     setStep('analyzing')
     const result = await generateAnalysis(finalHistory, selectedField)
-    setAnalysis(result || getFallbackAnalysis(finalHistory, selectedField))
+    const finalAnalysis = result || getFallbackAnalysis(finalHistory, selectedField)
+    setAnalysis(finalAnalysis)
+
+    // Save results to server
+    try {
+      const stored = localStorage.getItem('learnops_user')
+      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const fieldLabel = IT_FIELDS.find(f => f.id === selectedField)?.label || 'IT'
+      await fetch('/api/ai/save-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, field: fieldLabel, analysis: finalAnalysis }),
+      })
+    } catch { /* save is best-effort */ }
+
     setStep('results')
   }
 
@@ -919,7 +933,19 @@ export default function LevelTest() {
   /* ----- Generate curriculum ----- */
   const handleGenerateCurriculum = async () => {
     setStep('generating-curriculum')
-    const result = await generateCurriculum(analysis, selectedField)
+    let result = null
+    try {
+      const stored = localStorage.getItem('learnops_user')
+      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const res = await fetch('/api/ai/curriculum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      if (res.ok) {
+        result = await res.json()
+      }
+    } catch { /* fall through to fallback */ }
     setCurriculum(result || getFallbackCurriculum(analysis, selectedField))
     setStep('curriculum')
   }
