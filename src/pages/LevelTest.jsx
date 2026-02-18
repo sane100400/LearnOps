@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import {
   ChevronRight,
   RotateCcw,
@@ -14,6 +13,7 @@ import {
   Cloud,
   Database,
   Smartphone,
+  BookOpen,
 } from 'lucide-react'
 import {
   RadarChart,
@@ -426,6 +426,150 @@ async function generateChatResponse(messages, field) {
 }
 
 /* =========================================================
+   OpenAI API — Curriculum Generation
+   ========================================================= */
+
+async function generateCurriculum(analysis, field) {
+  const fieldInfo = IT_FIELDS.find(f => f.id === field)
+  const fieldLabel = fieldInfo?.label || 'IT'
+
+  const systemPrompt = `당신은 ${fieldLabel} 분야 학습 커리큘럼 설계 전문가입니다.
+사용자의 레벨테스트 분석 결과를 바탕으로 맞춤형 학습 로드맵을 생성하세요.
+
+분석 결과:
+- 분야: ${fieldLabel}
+- 레벨: ${analysis.level}
+- 관심 분야: ${(analysis.interests || []).join(', ')}
+- 강점: ${(analysis.strengths || []).join(', ')}
+- 보완점: ${(analysis.improvements || []).join(', ')}
+- 추천 경로: ${(analysis.recommendations || []).map(r => r.title).join(', ')}
+
+규칙:
+- 사용자의 레벨에 맞는 난이도로 설계하세요
+- 각 단계가 이전 단계를 기반으로 자연스럽게 이어지도록 구성하세요
+- 실습 프로젝트는 구체적이고 실행 가능해야 합니다
+- 4~6단계로 구성하세요
+- 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
+
+{
+  "title": "맞춤 커리큘럼 제목",
+  "totalWeeks": 8,
+  "steps": [
+    {
+      "step": 1,
+      "title": "단계 제목",
+      "duration": "1~2주",
+      "goal": "이 단계의 학습 목표",
+      "topics": ["토픽1", "토픽2", "토픽3"],
+      "projects": "실습 프로젝트 설명"
+    }
+  ]
+}`
+
+  try {
+    const content = await aiProxy(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: '분석 결과를 바탕으로 맞춤 학습 커리큘럼을 생성해주세요.' },
+      ],
+      0.7,
+      2000,
+    )
+    if (!content) return null
+
+    let jsonStr = content
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim()
+
+    return JSON.parse(jsonStr)
+  } catch {
+    return null
+  }
+}
+
+/* =========================================================
+   Fallback Curriculum (API 실패 시)
+   ========================================================= */
+
+function getFallbackCurriculum(analysis, field) {
+  const fieldInfo = IT_FIELDS.find(f => f.id === field)
+  const fieldLabel = fieldInfo?.label || 'IT'
+  const isBegin = analysis.level === '초급'
+  const isAdv = analysis.level === '상급'
+
+  const fallbacks = {
+    security: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: 'IT 기초 & 네트워크', duration: '1~2주', goal: '컴퓨터 네트워크와 운영체제 기초 이해', topics: ['TCP/IP', '리눅스 기본 명령어', 'HTTP 프로토콜'], projects: '가상 환경에서 리눅스 서버 구축 및 네트워크 패킷 캡처 분석' },
+        { step: 2, title: '웹 보안 기초', duration: '2~3주', goal: '웹 애플리케이션의 주요 취약점 이해', topics: ['OWASP Top 10', 'XSS', 'SQL Injection'], projects: 'DVWA/WebGoat으로 웹 취약점 실습' },
+        { step: 3, title: '시스템 & 네트워크 보안', duration: '2~3주', goal: '시스템/네트워크 레벨 보안 이해', topics: ['방화벽', '포트 스캐닝', '권한 상승'], projects: 'CTF 초급 문제 10개 풀이' },
+        { step: 4, title: '모의해킹 실전', duration: '2~3주', goal: '실전 모의해킹 워크플로우 체험', topics: ['정보 수집', '취약점 분석', '보고서 작성'], projects: 'HackTheBox 머신 3개 풀이 및 보고서 작성' },
+        { step: 5, title: '포트폴리오 & 자격증', duration: '2주', goal: '보안 커리어 준비', topics: ['정보보안기사', 'CTF 대회', '이력서 작성'], projects: '개인 보안 프로젝트 포트폴리오 완성' },
+      ],
+    },
+    frontend: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: 'HTML/CSS 기초', duration: '1~2주', goal: '웹 페이지 구조와 스타일링 기초', topics: ['시맨틱 HTML', 'Flexbox/Grid', '반응형 디자인'], projects: '개인 포트폴리오 랜딩 페이지 제작' },
+        { step: 2, title: 'JavaScript 핵심', duration: '2~3주', goal: 'JS 핵심 문법과 비동기 처리 이해', topics: ['ES6+', 'DOM 조작', 'Promise/async-await'], projects: 'To-Do 앱 바닐라 JS로 구현' },
+        { step: 3, title: 'React 입문', duration: '2~3주', goal: 'React 컴포넌트와 상태 관리 기초', topics: ['JSX', 'useState/useEffect', 'React Router'], projects: 'React로 영화 검색 앱 구현' },
+        { step: 4, title: 'React 심화 & 상태관리', duration: '2주', goal: '대규모 앱 상태 관리 패턴 학습', topics: ['Context API', '커스텀 훅', 'Zustand/Redux'], projects: 'E-commerce 장바구니 기능 구현' },
+        { step: 5, title: '포트폴리오 프로젝트', duration: '2주', goal: '실전 프로젝트로 역량 증명', topics: ['API 연동', '배포', '성능 최적화'], projects: '풀스택 프로젝트 완성 및 Vercel 배포' },
+      ],
+    },
+    backend: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: '프로그래밍 기초', duration: '1~2주', goal: '서버 개발을 위한 언어 기초', topics: ['Python/Node.js 선택', '자료구조', 'OOP 기초'], projects: '간단한 CLI 도구 제작' },
+        { step: 2, title: 'RESTful API 설계', duration: '2~3주', goal: 'REST API 설계 원칙과 구현', topics: ['HTTP 메서드', 'Express/FastAPI', '미들웨어'], projects: 'CRUD API 서버 구현' },
+        { step: 3, title: '데이터베이스', duration: '2~3주', goal: 'RDB와 NoSQL 활용 능력', topics: ['SQL 쿼리', 'ORM', '인덱싱/정규화'], projects: '게시판 API에 DB 연동' },
+        { step: 4, title: '인증 & 배포', duration: '2주', goal: '인증 시스템과 서버 배포', topics: ['JWT/OAuth', 'Docker', 'AWS EC2'], projects: '로그인 기능 구현 및 Docker로 배포' },
+        { step: 5, title: '실전 프로젝트', duration: '2주', goal: '실무 수준 백엔드 시스템 구축', topics: ['캐싱', '로깅', 'API 문서화'], projects: '실전 API 서버 프로젝트 완성' },
+      ],
+    },
+    infra: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: '리눅스 & 네트워크 기초', duration: '1~2주', goal: '서버 운영을 위한 기초 역량', topics: ['리눅스 명령어', '셸 스크립트', '네트워크 기초'], projects: 'VM 환경에서 리눅스 서버 세팅' },
+        { step: 2, title: '클라우드 서비스', duration: '2~3주', goal: 'AWS 핵심 서비스 활용', topics: ['EC2', 'S3', 'VPC/IAM'], projects: 'AWS에서 웹 서버 인프라 구축' },
+        { step: 3, title: '컨테이너 & 오케스트레이션', duration: '2~3주', goal: 'Docker와 Kubernetes 기초', topics: ['Docker', 'docker-compose', 'K8s 기초'], projects: '멀티 컨테이너 앱 배포' },
+        { step: 4, title: 'CI/CD & IaC', duration: '2주', goal: '자동화 파이프라인 구축', topics: ['GitHub Actions', 'Terraform', '모니터링'], projects: 'CI/CD 파이프라인 구축 및 자동 배포' },
+        { step: 5, title: '실전 DevOps', duration: '2주', goal: '프로덕션 환경 운영 역량', topics: ['로깅/모니터링', '장애 대응', '비용 최적화'], projects: '프로덕션 인프라 아키텍처 설계 및 구축' },
+      ],
+    },
+    data: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: 'Python & SQL 기초', duration: '1~2주', goal: '데이터 처리를 위한 도구 기초', topics: ['Python 문법', 'Pandas', 'SQL 쿼리'], projects: '공공 데이터셋 Python으로 전처리' },
+        { step: 2, title: '데이터 분석 & 시각화', duration: '2~3주', goal: 'EDA와 데이터 시각화 능력', topics: ['Matplotlib/Seaborn', '통계 기초', 'EDA 기법'], projects: '실제 데이터셋 EDA 리포트 작성' },
+        { step: 3, title: '머신러닝 기초', duration: '2~3주', goal: 'ML 핵심 알고리즘 이해와 실습', topics: ['회귀/분류', 'scikit-learn', '모델 평가'], projects: '캐글 초급 대회 참가' },
+        { step: 4, title: '딥러닝 & 고급 ML', duration: '2주', goal: '딥러닝 프레임워크 활용', topics: ['PyTorch/TensorFlow', 'CNN/RNN', '하이퍼파라미터 튜닝'], projects: '이미지 분류 모델 학습 및 배포' },
+        { step: 5, title: '실전 프로젝트', duration: '2주', goal: '엔드투엔드 데이터 프로젝트 경험', topics: ['데이터 파이프라인', '모델 서빙', '포트폴리오'], projects: '실전 ML 프로젝트 완성 및 발표' },
+      ],
+    },
+    mobile: {
+      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
+      totalWeeks: isBegin ? 12 : 8,
+      steps: [
+        { step: 1, title: '프로그래밍 & 플랫폼 기초', duration: '1~2주', goal: '모바일 개발 언어와 환경 세팅', topics: ['Swift/Kotlin/Dart 선택', '개발 환경 구축', 'UI 기초'], projects: '간단한 카운터 앱 제작' },
+        { step: 2, title: 'UI 구현 & 레이아웃', duration: '2~3주', goal: '모바일 UI 컴포넌트와 레이아웃 이해', topics: ['레이아웃 시스템', '네비게이션', '리스트 뷰'], projects: 'Todo 리스트 앱 UI 구현' },
+        { step: 3, title: 'API 연동 & 데이터', duration: '2~3주', goal: 'REST API 연동과 로컬 저장소 활용', topics: ['HTTP 통신', '로컬 DB', '상태 관리'], projects: '날씨 앱 (API 연동) 구현' },
+        { step: 4, title: '고급 기능', duration: '2주', goal: '네이티브 기능과 앱 아키텍처', topics: ['카메라/위치', '푸시 알림', 'MVVM 패턴'], projects: '사진 공유 앱 구현' },
+        { step: 5, title: '배포 & 포트폴리오', duration: '2주', goal: '스토어 배포와 포트폴리오 구성', topics: ['앱 빌드', '스토어 배포', '코드 리뷰'], projects: '개인 앱 프로젝트 스토어 배포' },
+      ],
+    },
+  }
+
+  return fallbacks[field] || fallbacks.security
+}
+
+/* =========================================================
    Chat → Q&A History Converter
    ========================================================= */
 
@@ -566,13 +710,14 @@ function getFallbackAnalysis(history, field) {
    ========================================================= */
 
 export default function LevelTest() {
-  const [step, setStep] = useState('intro')     // 'intro' | 'quiz' | 'chat' | 'analyzing' | 'results'
+  const [step, setStep] = useState('intro')     // 'intro' | 'quiz' | 'chat' | 'analyzing' | 'results' | 'generating-curriculum' | 'curriculum'
   const [selectedField, setSelectedField] = useState(null)  // IT field selection
   const [qIdx, setQIdx] = useState(0)            // current question index
   const [currentQ, setCurrentQ] = useState(null)  // current question object
   const [history, setHistory] = useState([])      // all Q&A pairs
   const [isLoading, setIsLoading] = useState(false)
   const [analysis, setAnalysis] = useState(null)
+  const [curriculum, setCurriculum] = useState(null)
 
   // Answer state
   const [selectedOption, setSelectedOption] = useState(null)  // single-select highlight
@@ -760,6 +905,7 @@ export default function LevelTest() {
     setHistory([])
     setIsLoading(false)
     setAnalysis(null)
+    setCurriculum(null)
     setSelectedOption(null)
     setMultiSelection([])
     setTextInput('')
@@ -768,6 +914,14 @@ export default function LevelTest() {
     setChatInput('')
     setIsChatLoading(false)
     setChatUserMsgCount(0)
+  }
+
+  /* ----- Generate curriculum ----- */
+  const handleGenerateCurriculum = async () => {
+    setStep('generating-curriculum')
+    const result = await generateCurriculum(analysis, selectedField)
+    setCurriculum(result || getFallbackCurriculum(analysis, selectedField))
+    setStep('curriculum')
   }
 
   /* ----- Can submit? ----- */
@@ -1254,15 +1408,93 @@ export default function LevelTest() {
 
               {/* Actions */}
               <div style={s.resultActions}>
-                <Link to="/curriculum">
-                  <Button size="large">맞춤 커리큘럼 확인 <ChevronRight size={18} /></Button>
-                </Link>
+                <Button size="large" onClick={handleGenerateCurriculum}>
+                  <BookOpen size={18} /> AI 맞춤 커리큘럼 생성
+                </Button>
                 <Button variant="secondary" size="large" onClick={resetTest}>
                   <RotateCcw size={18} /> 다시 테스트하기
                 </Button>
               </div>
             </div>
           )}
+          {/* ===== Generating Curriculum ===== */}
+          {step === 'generating-curriculum' && (
+            <div style={s.centerWrap}>
+              <div style={s.analyzingCard}>
+                <Loader2 size={44} style={{ color: '#4F46E5', animation: 'spin 1s linear infinite' }} />
+                <h2 style={s.analyzingTitle}>AI가 맞춤 커리큘럼을 생성하고 있습니다...</h2>
+                <p style={s.analyzingDesc}>분석 결과를 바탕으로 학습 로드맵을 설계 중입니다</p>
+                <div style={s.analyzingDots}>
+                  <div style={{ ...s.dot, animationDelay: '0s' }} />
+                  <div style={{ ...s.dot, animationDelay: '0.2s' }} />
+                  <div style={{ ...s.dot, animationDelay: '0.4s' }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== Curriculum ===== */}
+          {step === 'curriculum' && curriculum && (
+            <div style={s.curriculumWrap}>
+              {/* Header */}
+              <div style={s.curriculumHeader}>
+                <div style={s.curriculumIconWrap}>
+                  <BookOpen size={32} />
+                </div>
+                <h1 style={s.curriculumTitle}>{curriculum.title}</h1>
+                <div style={s.curriculumBadge}>
+                  총 {curriculum.totalWeeks}주 과정
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div style={s.timeline}>
+                {(curriculum.steps || []).map((item, i) => {
+                  const isLast = i === curriculum.steps.length - 1
+                  return (
+                    <div key={i} style={s.timelineItem}>
+                      {/* Left: line + node */}
+                      <div style={s.timelineLeft}>
+                        <div style={{
+                          ...s.timelineNode,
+                          background: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'][i % 6],
+                        }}>
+                          {item.step}
+                        </div>
+                        {!isLast && <div style={s.timelineLine} />}
+                      </div>
+
+                      {/* Right: card */}
+                      <div style={s.timelineCard}>
+                        <div style={s.timelineCardHeader}>
+                          <h3 style={s.timelineCardTitle}>{item.title}</h3>
+                          <span style={s.timelineDuration}>{item.duration}</span>
+                        </div>
+                        <p style={s.timelineGoal}>{item.goal}</p>
+                        <div style={s.topicRow}>
+                          {(item.topics || []).map((topic, j) => (
+                            <span key={j} style={s.topicTag}>{topic}</span>
+                          ))}
+                        </div>
+                        <div style={s.projectArea}>
+                          <span style={s.projectLabel}>실습 프로젝트</span>
+                          <p style={s.projectText}>{item.projects}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Bottom action */}
+              <div style={s.curriculumActions}>
+                <Button variant="secondary" size="large" onClick={resetTest}>
+                  <RotateCcw size={18} /> 다시 테스트하기
+                </Button>
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
       <LevelTestStyles />
@@ -2072,5 +2304,163 @@ const s = {
     cursor: 'pointer',
     fontFamily: 'inherit',
     transition: 'all 0.15s ease',
+  },
+
+  /* ====== Curriculum ====== */
+  curriculumWrap: {
+    maxWidth: '700px',
+    margin: '0 auto',
+    padding: '32px 16px 60px',
+  },
+  curriculumHeader: {
+    textAlign: 'center',
+    marginBottom: '36px',
+  },
+  curriculumIconWrap: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '16px',
+    background: 'linear-gradient(135deg, rgba(79,70,229,0.12), rgba(6,182,212,0.08))',
+    color: '#818CF8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 16px',
+  },
+  curriculumTitle: {
+    fontSize: '1.5rem',
+    fontWeight: 800,
+    marginBottom: '12px',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+  },
+  curriculumBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 16px',
+    borderRadius: '100px',
+    background: 'rgba(79,70,229,0.06)',
+    color: '#4F46E5',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    border: '1px solid rgba(79,70,229,0.12)',
+  },
+
+  /* Timeline */
+  timeline: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0px',
+  },
+  timelineItem: {
+    display: 'flex',
+    gap: '20px',
+  },
+  timelineLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    flexShrink: 0,
+    width: '40px',
+  },
+  timelineNode: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.85rem',
+    fontWeight: 700,
+    flexShrink: 0,
+    zIndex: 1,
+  },
+  timelineLine: {
+    width: '2px',
+    flex: 1,
+    background: 'linear-gradient(180deg, #CBD5E1, #E2E8F0)',
+    minHeight: '20px',
+  },
+  timelineCard: {
+    flex: 1,
+    background: '#fff',
+    border: '1px solid #E2E8F0',
+    borderRadius: '14px',
+    padding: '20px 24px',
+    marginBottom: '16px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+  },
+  timelineCardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '8px',
+    gap: '12px',
+  },
+  timelineCardTitle: {
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: '#0F172A',
+  },
+  timelineDuration: {
+    padding: '3px 10px',
+    borderRadius: '100px',
+    background: '#F1F5F9',
+    color: '#64748B',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+  },
+  timelineGoal: {
+    color: '#475569',
+    fontSize: '0.85rem',
+    lineHeight: 1.6,
+    marginBottom: '12px',
+  },
+  topicRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    marginBottom: '14px',
+  },
+  topicTag: {
+    padding: '3px 10px',
+    borderRadius: '100px',
+    background: 'rgba(79,70,229,0.06)',
+    color: '#6366F1',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    border: '1px solid rgba(79,70,229,0.10)',
+  },
+  projectArea: {
+    padding: '12px 16px',
+    borderRadius: '10px',
+    background: '#F8FAFC',
+    border: '1px solid #F1F5F9',
+  },
+  projectLabel: {
+    display: 'block',
+    fontSize: '0.72rem',
+    fontWeight: 600,
+    color: '#94A3B8',
+    marginBottom: '4px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.03em',
+  },
+  projectText: {
+    color: '#334155',
+    fontSize: '0.83rem',
+    lineHeight: 1.5,
+    margin: 0,
+  },
+  curriculumActions: {
+    display: 'flex',
+    gap: '12px',
+    justifyContent: 'center',
+    marginTop: '12px',
   },
 }
