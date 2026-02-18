@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, GraduationCap, BookOpen,
-  Trophy, Users, Settings, ChevronLeft, Menu, Cpu, Shield,
+  Trophy, Users, Settings, ChevronLeft, Menu, Shield,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +12,7 @@ const menuItems = [
   { path: '/curriculum', icon: BookOpen, label: '커리큘럼' },
   { path: '/ranking', icon: Trophy, label: '랭킹' },
   { path: '/study-group', icon: Users, label: '스터디 그룹' },
-  { path: '/curriculum-generate', icon: Cpu, label: '커리큘럼 생성' },
+
   { path: '/admin', icon: Shield, label: '관리자' },
 ]
 

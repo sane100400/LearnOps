@@ -15,7 +15,6 @@ import {
   Swords,
   Eye,
   Loader2,
-  Target,
   Calendar,
   Layers,
   ArrowLeft,
@@ -307,8 +306,8 @@ export default function Curriculum() {
                 </div>
               </div>
 
-              {/* ── AI 맞춤 커리큘럼 카드 ── */}
-              {savedCurriculum && savedRaw ? (
+              {/* ── AI 맞춤 커리큘럼 카드 (저장된 경우에만 표시) ── */}
+              {savedCurriculum && savedRaw && (
                 <div style={st.cardOuter} onClick={() => openRoadmap('saved')}>
                   <div style={st.cardGradientBar} />
                   <div style={st.cardBody}>
@@ -346,23 +345,6 @@ export default function Curriculum() {
                       <span style={st.cardCtaText}>로드맵 상세 보기</span>
                       <ChevronRight size={18} style={{ color: '#4F46E5' }} />
                     </div>
-                  </div>
-                </div>
-              ) : (
-                /* AI 커리큘럼 없을 때 생성 유도 카드 */
-                <div style={{ ...st.cardOuter, cursor: 'default' }}>
-                  <div style={{ ...st.cardGradientBar, background: 'linear-gradient(90deg, #94A3B8, #CBD5E1)' }} />
-                  <div style={{ ...st.cardBody, textAlign: 'center', padding: '40px 28px' }}>
-                    <div style={{ ...st.cardIconWrap, margin: '0 auto 16px', background: 'rgba(148,163,184,0.1)', color: '#94A3B8' }}>
-                      <Target size={26} />
-                    </div>
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#64748B', margin: '0 0 8px' }}>AI 맞춤 커리큘럼</h2>
-                    <p style={{ fontSize: '0.88rem', color: '#94A3B8', lineHeight: 1.6, marginBottom: 20 }}>
-                      레벨테스트를 진행하면 AI가 맞춤 커리큘럼을 생성합니다.
-                    </p>
-                    <Link to="/level-test" style={{ textDecoration: 'none' }}>
-                      <Button size="medium"><Target size={16} /> 레벨테스트 시작</Button>
-                    </Link>
                   </div>
                 </div>
               )}
