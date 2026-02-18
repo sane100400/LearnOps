@@ -8,6 +8,12 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  Shield,
+  Monitor,
+  Server,
+  Cloud,
+  Database,
+  Smartphone,
 } from 'lucide-react'
 import {
   RadarChart,
@@ -31,26 +37,187 @@ const MIN_CHAT_MESSAGES = 5
 const DIRECTION_PHASE_END = 8  // Q1~Q8: 방향 탐색, Q9~Q12: 지식 측정
 
 /* =========================================================
-   Initial Questions (첫 3문항은 고정 — 학습 방향 탐색 시드)
+   IT 분야 카테고리
    ========================================================= */
 
-const initialQuestions = [
-  {
-    type: 'single-with-text',
-    question: '보안 학습을 시작하려는 이유가 무엇인가요?',
-    options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/흥미'],
-  },
-  {
-    type: 'multi-with-text',
-    question: '현재 IT 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
-    options: ['프로그래밍/개발', '서버/네트워크 관리', '보안 관련 업무나 학습'],
-  },
-  {
-    type: 'single-with-text',
-    question: '보안 분야 중 가장 끌리는 방향이 있으신가요?',
-    options: ['웹/앱 해킹 (버그바운티, 모의해킹)', '시스템/네트워크 보안 (침투테스트, 포렌식)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
-  },
+const IT_FIELDS = [
+  { id: 'security', label: '사이버 보안', icon: Shield, desc: '모의해킹, 포렌식, 보안 관제, 취약점 분석', color: '#EF4444' },
+  { id: 'frontend', label: '프론트엔드 개발', icon: Monitor, desc: 'React, Vue, UI/UX, 웹 퍼포먼스', color: '#3B82F6' },
+  { id: 'backend', label: '백엔드 개발', icon: Server, desc: 'API 설계, DB, 서버 아키텍처, MSA', color: '#10B981' },
+  { id: 'infra', label: '인프라/클라우드', icon: Cloud, desc: 'AWS, Docker, K8s, CI/CD, DevOps', color: '#F59E0B' },
+  { id: 'data', label: '데이터/AI', icon: Database, desc: '데이터 엔지니어링, ML, 데이터 분석', color: '#8B5CF6' },
+  { id: 'mobile', label: '모바일 개발', icon: Smartphone, desc: 'iOS, Android, React Native, Flutter', color: '#EC4899' },
 ]
+
+/* =========================================================
+   분야별 프롬프트 설정
+   ========================================================= */
+
+function getFieldPromptConfig(field) {
+  const configs = {
+    security: {
+      expertRole: '사이버 보안 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (자격증, 직무, 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 보안 세부 분야 (웹 해킹, 포렌식, 악성코드 분석, 클라우드 보안, 네트워크 침투)', '이전 학습 경험 (CTF, 온라인 강의, 독학)', '현재 IT 역량 수준 (프로그래밍, 리눅스, 네트워크)', '커리어 방향'],
+      knowledgeAreas: ['네트워크 보안', '웹 보안', '시스템 해킹', '암호학', '포렌식'],
+      analysisExpert: '사이버 보안 학습 분석 전문가',
+      chatRole: '사이버 보안 학습 상담사',
+      profileExample: '공격형 보안 전문가 지망생',
+    },
+    frontend: {
+      expertRole: '프론트엔드 개발 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (취업, 포트폴리오, 사이드 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (React vs Vue vs Svelte, CSS 프레임워크, 번들러, 상태관리)', '이전 개발 경험 (HTML/CSS, JavaScript, 프로젝트 경험)', '현재 역량 수준 (프로그래밍 언어, 프레임워크 경험)', '커리어 방향'],
+      knowledgeAreas: ['JavaScript', 'React', 'CSS/HTML', '웹 성능 최적화', '상태 관리'],
+      analysisExpert: '프론트엔드 개발 학습 분석 전문가',
+      chatRole: '프론트엔드 개발 학습 상담사',
+      profileExample: '컴포넌트 아키텍트 지망생',
+    },
+    backend: {
+      expertRole: '백엔드 개발 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (취업, 서비스 구축, 역량 강화)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (API 설계, DB 최적화, MSA, 메시지 큐, 인증/보안)', '이전 개발 경험 (언어, 프레임워크, DB)', '현재 역량 수준', '커리어 방향'],
+      knowledgeAreas: ['API 설계', '데이터베이스', '서버 아키텍처', '인증/보안', '성능 최적화'],
+      analysisExpert: '백엔드 개발 학습 분석 전문가',
+      chatRole: '백엔드 개발 학습 상담사',
+      profileExample: '서버 아키텍트 지망생',
+    },
+    infra: {
+      expertRole: '인프라/클라우드 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (자격증, DevOps 전환, 인프라 운영)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (AWS vs GCP vs Azure, Docker/K8s, CI/CD, IaC, 모니터링)', '이전 운영 경험 (서버 관리, 네트워크, 클라우드)', '현재 역량 수준 (리눅스, 스크립팅, 네트워크)', '커리어 방향'],
+      knowledgeAreas: ['클라우드 서비스', '컨테이너/K8s', 'CI/CD', '네트워크', 'IaC'],
+      analysisExpert: '인프라/클라우드 학습 분석 전문가',
+      chatRole: '인프라/클라우드 학습 상담사',
+      profileExample: 'DevOps 엔지니어 지망생',
+    },
+    data: {
+      expertRole: '데이터/AI 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (데이터 분석가, ML 엔지니어, 데이터 엔지니어)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (데이터 분석, ML/DL, 데이터 파이프라인, NLP, 컴퓨터 비전)', '이전 경험 (통계, Python, SQL, ML 프로젝트)', '현재 역량 수준 (수학/통계, 프로그래밍, 도구)', '커리어 방향'],
+      knowledgeAreas: ['Python/SQL', '통계/수학', '머신러닝', '데이터 파이프라인', '시각화/분석'],
+      analysisExpert: '데이터/AI 학습 분석 전문가',
+      chatRole: '데이터/AI 학습 상담사',
+      profileExample: 'ML 엔지니어 지망생',
+    },
+    mobile: {
+      expertRole: '모바일 개발 학습 성향 및 역량 분석 전문가',
+      directionTopics: ['구체적인 학습 목표 (앱 출시, 취업, 사이드 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (iOS/Swift vs Android/Kotlin vs 크로스플랫폼 React Native/Flutter)', '이전 개발 경험 (프로그래밍 언어, 앱 개발)', '현재 역량 수준', '커리어 방향'],
+      knowledgeAreas: ['모바일 UI/UX', '네이티브 개발', '크로스플랫폼', '앱 아키텍처', '배포/운영'],
+      analysisExpert: '모바일 개발 학습 분석 전문가',
+      chatRole: '모바일 개발 학습 상담사',
+      profileExample: '모바일 앱 개발자 지망생',
+    },
+  }
+  return configs[field] || configs.security
+}
+
+/* =========================================================
+   분야별 초기 질문 (첫 3문항은 고정 — 학습 방향 탐색 시드)
+   ========================================================= */
+
+function getInitialQuestions(field) {
+  const questions = {
+    security: [
+      {
+        type: 'single-with-text',
+        question: '보안 학습을 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/흥미'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 IT 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['프로그래밍/개발', '서버/네트워크 관리', '보안 관련 업무나 학습'],
+      },
+      {
+        type: 'single-with-text',
+        question: '보안 분야 중 가장 끌리는 방향이 있으신가요?',
+        options: ['웹/앱 해킹 (버그바운티, 모의해킹)', '시스템/네트워크 보안 (침투테스트, 포렌식)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
+      },
+    ],
+    frontend: [
+      {
+        type: 'single-with-text',
+        question: '프론트엔드 개발을 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/사이드 프로젝트'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['HTML/CSS 기초', 'JavaScript/TypeScript', 'React, Vue 등 프레임워크'],
+      },
+      {
+        type: 'single-with-text',
+        question: '프론트엔드에서 가장 관심 있는 방향이 있으신가요?',
+        options: ['UI/UX 중심 개발 (디자인 시스템, 인터랙션)', '웹 애플리케이션 개발 (SPA, SSR)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
+      },
+    ],
+    backend: [
+      {
+        type: 'single-with-text',
+        question: '백엔드 개발을 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화', '개인 서비스/프로젝트 구축'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['프로그래밍 언어 (Java, Python, Node.js 등)', '데이터베이스 (SQL, NoSQL)', 'API 설계 및 서버 운영'],
+      },
+      {
+        type: 'single-with-text',
+        question: '백엔드에서 가장 관심 있는 방향이 있으신가요?',
+        options: ['API 설계 및 서버 개발', 'DB 설계 및 데이터 모델링', '대규모 시스템 아키텍처 (MSA, 분산 시스템)'],
+      },
+    ],
+    infra: [
+      {
+        type: 'single-with-text',
+        question: '인프라/클라우드를 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화 (DevOps 전환)', '개인적 호기심/학습'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 인프라 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['리눅스/서버 관리', '클라우드 서비스 (AWS, GCP, Azure)', 'Docker/컨테이너 기술'],
+      },
+      {
+        type: 'single-with-text',
+        question: '인프라/클라우드에서 가장 관심 있는 방향이 있으신가요?',
+        options: ['클라우드 아키텍처 (AWS, GCP, Azure)', '컨테이너 오케스트레이션 (Docker, Kubernetes)', 'CI/CD 및 DevOps 파이프라인'],
+      },
+    ],
+    data: [
+      {
+        type: 'single-with-text',
+        question: '데이터/AI를 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화', '개인적 호기심/연구'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 데이터 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['Python/R 프로그래밍', 'SQL/데이터 분석', '머신러닝/딥러닝 모델링'],
+      },
+      {
+        type: 'single-with-text',
+        question: '데이터/AI에서 가장 관심 있는 방향이 있으신가요?',
+        options: ['데이터 분석 및 시각화', '머신러닝/딥러닝 엔지니어링', '데이터 파이프라인/엔지니어링'],
+      },
+    ],
+    mobile: [
+      {
+        type: 'single-with-text',
+        question: '모바일 개발을 시작하려는 이유가 무엇인가요?',
+        options: ['취업/이직 준비', '현업 역량 강화', '개인 앱 출시/사이드 프로젝트'],
+      },
+      {
+        type: 'multi-with-text',
+        question: '현재 개발 관련 경험이 있다면 어떤 분야인가요? (복수 선택 가능)',
+        options: ['프로그래밍 언어 (Swift, Kotlin, Dart 등)', '모바일 앱 개발 경험', '웹 개발 (JavaScript/React 등)'],
+      },
+      {
+        type: 'single-with-text',
+        question: '모바일 개발에서 가장 관심 있는 방향이 있으신가요?',
+        options: ['iOS 네이티브 개발 (Swift/SwiftUI)', 'Android 네이티브 개발 (Kotlin/Jetpack Compose)', '크로스플랫폼 (React Native, Flutter)'],
+      },
+    ],
+  }
+  return questions[field] || questions.security
+}
 
 /* =========================================================
    Backend AI Proxy Helper
@@ -75,7 +242,8 @@ async function aiProxy(messages, temperature = 0.8, max_tokens = 500) {
    OpenAI API — Adaptive Question Generation
    ========================================================= */
 
-async function generateNextQuestion(history) {
+async function generateNextQuestion(history, field) {
+  const config = getFieldPromptConfig(field)
   const historyText = history.map((h, i) =>
     `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}`
   ).join('\n\n')
@@ -83,26 +251,23 @@ async function generateNextQuestion(history) {
   const currentNum = history.length + 1
   const isDirectionPhase = currentNum <= DIRECTION_PHASE_END
 
+  const directionTopicsList = config.directionTopics.map(t => `- ${t}`).join('\n')
+
   const directionGuidance = isDirectionPhase
     ? `현재는 **방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})입니다.
 아직 파악하지 못한 정보를 우선적으로 질문하세요:
-- 구체적인 학습 목표 (예: 어떤 자격증? 어떤 직무? 어떤 프로젝트?)
-- 학습에 투자할 수 있는 시간과 기간
-- 선호하는 학습 방식 (이론 vs 실습, 혼자 vs 그룹)
-- 관심 있는 보안 세부 분야 (웹 해킹, 포렌식, 악성코드 분석, 클라우드 보안, 네트워크 침투 등)
-- 이전 학습 경험이나 시도한 적 있는 것 (CTF, 온라인 강의, 독학 등)
-- 현재 개발/IT 역량 수준 (프로그래밍 언어, 리눅스 경험, 네트워크 이해도 등)
-- 최종적으로 되고 싶은 모습이나 커리어 방향
+${directionTopicsList}
 
 ** 절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
 이전 답변에서 이미 파악된 정보는 건너뛰고, 아직 모르는 부분을 물어보세요.`
     : `현재는 **지식 측정 단계** (문항 ${currentNum}/${MAX_QUESTIONS})입니다.
 사용자가 관심 있다고 한 분야에서 실제 지식 수준을 측정하는 4지선다 퀴즈를 출제하세요.
+측정 가능한 지식 영역: ${config.knowledgeAreas.join(', ')}
 - 반드시 quiz 타입을 사용하세요
 - 너무 쉽거나 너무 어려운 문제는 피하세요
 - 이전에 틀린 문제가 있다면 난이도를 조절하세요`
 
-  const systemPrompt = `당신은 사이버 보안 학습 성향 및 역량 분석 전문가입니다.
+  const systemPrompt = `당신은 ${config.expertRole}입니다.
 사용자의 이전 답변을 기반으로 다음 질문을 생성하세요.
 
 목표: 아키네이터처럼 점진적으로 사용자의 학습 방향, 동기, 경험, 목표를 깊이 파악한 뒤, 마지막에 지식 수준을 측정합니다.
@@ -161,12 +326,15 @@ answer는 정답 인덱스(0~3)
    OpenAI API — Final Analysis
    ========================================================= */
 
-async function generateAnalysis(history) {
+async function generateAnalysis(history, field) {
+  const config = getFieldPromptConfig(field)
   const historyText = history.map((h, i) =>
     `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}${h.correct !== undefined ? ` (${h.correct ? '정답' : '오답'})` : ''}`
   ).join('\n\n')
 
-  const systemPrompt = `당신은 사이버 보안 학습 분석 전문가입니다.
+  const radarExample = config.knowledgeAreas.map(area => `{"subject": "${area}", "score": 50}`).join(',\n    ')
+
+  const systemPrompt = `당신은 ${config.analysisExpert}입니다.
 사용자의 전체 문답 기록을 분석하여 종합 결과를 생성하세요.
 
 중요: 사용자의 학습 동기, 목표, 관심 방향, 경험 수준을 충분히 반영하세요.
@@ -174,7 +342,7 @@ async function generateAnalysis(history) {
 
 반드시 아래 JSON 형식으로만 응답하세요:
 {
-  "profileName": "프로필 타입명 (예: 공격형 보안 전문가 지망생)",
+  "profileName": "프로필 타입명 (예: ${config.profileExample})",
   "profileDesc": "사용자의 학습 방향과 특성을 반영한 한 줄 설명",
   "level": "초급/중급/상급 중 택 1",
   "interests": ["관심 분야 태그 배열 — 사용자가 직접 언급한 분야 중심"],
@@ -186,7 +354,7 @@ async function generateAnalysis(history) {
     {"title": "추천 경로 3", "desc": "설명"}
   ],
   "radarData": [
-    {"subject": "분야명", "score": 0~100},
+    ${radarExample}
     ...최소 5개 — 사용자 관심 분야를 반영한 레이더 축
   ]
 }`
@@ -216,14 +384,16 @@ async function generateAnalysis(history) {
    OpenAI API — Chat Mode Response
    ========================================================= */
 
-async function generateChatResponse(messages) {
-  const systemPrompt = `당신은 사이버 보안 학습 상담사입니다. 친근하고 전문적인 톤으로 대화하세요.
+async function generateChatResponse(messages, field) {
+  const config = getFieldPromptConfig(field)
+  const fieldLabel = IT_FIELDS.find(f => f.id === field)?.label || 'IT'
+  const systemPrompt = `당신은 ${config.chatRole}입니다. 친근하고 전문적인 톤으로 대화하세요.
 
-목표: 자연스러운 대화를 통해 사용자의 학습 방향, 동기, 관심 분야, 경험 수준, 학습 목표를 깊이 파악합니다.
+목표: 자연스러운 대화를 통해 사용자의 ${fieldLabel} 분야 학습 방향, 동기, 관심 분야, 경험 수준, 학습 목표를 깊이 파악합니다.
 
 대화 흐름 가이드:
-1단계 (1~2번째 메시지): 학습을 시작하려는 동기와 배경을 파악
-2단계 (3~4번째 메시지): 관심 있는 보안 세부 분야와 이유 탐색
+1단계 (1~2번째 메시지): ${fieldLabel} 학습을 시작하려는 동기와 배경을 파악
+2단계 (3~4번째 메시지): 관심 있는 ${fieldLabel} 세부 분야와 이유 탐색
 3단계 (5~6번째 메시지): 구체적인 목표 (취업, 자격증, 프로젝트 등)와 투자 가능 시간
 4단계 (7번째~): 선호하는 학습 방식, 현재 역량 수준 확인, 정리
 
@@ -273,15 +443,10 @@ function convertChatToHistory(messages) {
    Fallback Analysis (API 없을 때)
    ========================================================= */
 
-function getFallbackAnalysis(history) {
-  const allAnswers = history.map((h) => h.answer).join(' ')
-  let profileName = '보안 탐색자'
-  let profileDesc = '다양한 보안 분야를 탐색하고 있는 타입입니다.'
-
-  if (allAnswers.includes('보안') || allAnswers.includes('해킹')) {
-    profileName = '보안 전문가 지망생'
-    profileDesc = '보안 분야에 높은 관심을 가지고 있는 타입입니다.'
-  }
+function getFallbackAnalysis(history, field) {
+  const config = getFieldPromptConfig(field)
+  const fieldInfo = IT_FIELDS.find(f => f.id === field)
+  const fieldLabel = fieldInfo?.label || 'IT'
 
   const quizResults = history.filter((h) => h.correct !== undefined)
   const correctCount = quizResults.filter((h) => h.correct).length
@@ -289,26 +454,107 @@ function getFallbackAnalysis(history) {
     : correctCount / quizResults.length >= 0.7 ? '상급'
     : correctCount / quizResults.length >= 0.4 ? '중급' : '초급'
 
-  return {
-    profileName,
-    profileDesc,
-    level,
-    interests: ['보안', '학습'],
-    strengths: ['보안에 대한 관심', '학습 의지', '자기 분석 능력'],
-    improvements: ['실습 경험 확대', '세부 분야 깊이 강화', '최신 트렌드 파악'],
-    recommendations: [
-      { title: '보안 기초 완성', desc: '네트워크, 시스템, 웹 보안 기초 역량 구축' },
-      { title: 'CTF 실전 대비', desc: '다양한 보안 분야를 아우르는 CTF 풀이 역량' },
-      { title: '보안 자격증 취득', desc: '정보보안기사, CISSP 등 자격증 대비' },
-    ],
-    radarData: [
-      { subject: '웹 보안', score: 50 },
-      { subject: '네트워크', score: 50 },
-      { subject: '시스템', score: 50 },
-      { subject: '암호학', score: 40 },
-      { subject: '포렌식', score: 30 },
-    ],
+  const fallbacks = {
+    security: {
+      profileName: '보안 탐색자',
+      profileDesc: '다양한 보안 분야를 탐색하고 있는 타입입니다.',
+      interests: ['보안', '학습'],
+      strengths: ['보안에 대한 관심', '학습 의지', '자기 분석 능력'],
+      improvements: ['실습 경험 확대', '세부 분야 깊이 강화', '최신 트렌드 파악'],
+      recommendations: [
+        { title: '보안 기초 완성', desc: '네트워크, 시스템, 웹 보안 기초 역량 구축' },
+        { title: 'CTF 실전 대비', desc: '다양한 보안 분야를 아우르는 CTF 풀이 역량' },
+        { title: '보안 자격증 취득', desc: '정보보안기사, CISSP 등 자격증 대비' },
+      ],
+      radarData: [
+        { subject: '웹 보안', score: 50 }, { subject: '네트워크', score: 50 },
+        { subject: '시스템', score: 50 }, { subject: '암호학', score: 40 }, { subject: '포렌식', score: 30 },
+      ],
+    },
+    frontend: {
+      profileName: '프론트엔드 탐색자',
+      profileDesc: '프론트엔드 개발의 다양한 영역을 탐색하고 있는 타입입니다.',
+      interests: ['프론트엔드', 'UI/UX'],
+      strengths: ['프론트엔드에 대한 관심', '학습 의지', '사용자 경험 감각'],
+      improvements: ['프레임워크 심화 학습', '프로젝트 경험 확대', '성능 최적화 이해'],
+      recommendations: [
+        { title: 'JavaScript 기초 완성', desc: 'ES6+, 비동기 처리, DOM 조작 핵심 역량 구축' },
+        { title: 'React 프로젝트 실전', desc: '컴포넌트 설계, 상태 관리, 라우팅 실습' },
+        { title: '포트폴리오 구축', desc: '개인 프로젝트로 실무 역량 증명' },
+      ],
+      radarData: [
+        { subject: 'JavaScript', score: 50 }, { subject: 'React', score: 40 },
+        { subject: 'CSS/HTML', score: 50 }, { subject: '웹 성능', score: 30 }, { subject: '상태 관리', score: 35 },
+      ],
+    },
+    backend: {
+      profileName: '백엔드 탐색자',
+      profileDesc: '백엔드 개발의 다양한 영역을 탐색하고 있는 타입입니다.',
+      interests: ['백엔드', 'API'],
+      strengths: ['서버 개발에 대한 관심', '학습 의지', '논리적 사고력'],
+      improvements: ['DB 설계 역량 강화', '아키텍처 패턴 학습', '실전 프로젝트 경험'],
+      recommendations: [
+        { title: '서버 개발 기초 완성', desc: 'RESTful API 설계, DB 연동 핵심 역량 구축' },
+        { title: 'DB 설계 실전', desc: '정규화, 인덱싱, 쿼리 최적화 실습' },
+        { title: 'MSA 아키텍처 이해', desc: '마이크로서비스 설계 원칙과 패턴 학습' },
+      ],
+      radarData: [
+        { subject: 'API 설계', score: 45 }, { subject: '데이터베이스', score: 40 },
+        { subject: '서버 아키텍처', score: 35 }, { subject: '인증/보안', score: 30 }, { subject: '성능 최적화', score: 30 },
+      ],
+    },
+    infra: {
+      profileName: '인프라 탐색자',
+      profileDesc: '인프라/클라우드의 다양한 영역을 탐색하고 있는 타입입니다.',
+      interests: ['인프라', '클라우드'],
+      strengths: ['인프라에 대한 관심', '학습 의지', '시스템 이해력'],
+      improvements: ['클라우드 서비스 실습', '자동화 스킬 향상', 'IaC 도구 학습'],
+      recommendations: [
+        { title: '리눅스/네트워크 기초', desc: '서버 운영, 네트워크 기초 역량 구축' },
+        { title: '클라우드 실전', desc: 'AWS/GCP 핵심 서비스 실습과 자격증 준비' },
+        { title: 'DevOps 파이프라인 구축', desc: 'CI/CD, 컨테이너, 모니터링 실습' },
+      ],
+      radarData: [
+        { subject: '클라우드', score: 40 }, { subject: '컨테이너/K8s', score: 35 },
+        { subject: 'CI/CD', score: 30 }, { subject: '네트워크', score: 45 }, { subject: 'IaC', score: 25 },
+      ],
+    },
+    data: {
+      profileName: '데이터 탐색자',
+      profileDesc: '데이터/AI의 다양한 영역을 탐색하고 있는 타입입니다.',
+      interests: ['데이터', 'AI'],
+      strengths: ['데이터에 대한 관심', '학습 의지', '분석적 사고력'],
+      improvements: ['통계 기초 보강', '실전 데이터 프로젝트', 'ML 파이프라인 이해'],
+      recommendations: [
+        { title: 'Python/SQL 기초 완성', desc: '데이터 처리를 위한 핵심 도구 역량 구축' },
+        { title: '데이터 분석 실전', desc: '실제 데이터셋으로 EDA, 시각화 실습' },
+        { title: 'ML 모델링 입문', desc: '기본 알고리즘 이해와 모델 학습 실습' },
+      ],
+      radarData: [
+        { subject: 'Python/SQL', score: 45 }, { subject: '통계/수학', score: 35 },
+        { subject: '머신러닝', score: 30 }, { subject: '데이터 파이프라인', score: 25 }, { subject: '시각화/분석', score: 40 },
+      ],
+    },
+    mobile: {
+      profileName: '모바일 탐색자',
+      profileDesc: '모바일 개발의 다양한 영역을 탐색하고 있는 타입입니다.',
+      interests: ['모바일', '앱 개발'],
+      strengths: ['모바일 개발에 대한 관심', '학습 의지', '사용자 경험 감각'],
+      improvements: ['네이티브 API 이해', '앱 아키텍처 학습', '배포 프로세스 경험'],
+      recommendations: [
+        { title: '플랫폼 선택 및 기초', desc: 'iOS/Android/크로스플랫폼 중 선택하여 기초 역량 구축' },
+        { title: '앱 프로젝트 실전', desc: 'UI 구현, API 연동, 로컬 저장소 활용 실습' },
+        { title: '앱 스토어 배포', desc: '빌드, 테스트, 배포 프로세스 경험' },
+      ],
+      radarData: [
+        { subject: '모바일 UI/UX', score: 40 }, { subject: '네이티브 개발', score: 35 },
+        { subject: '크로스플랫폼', score: 30 }, { subject: '앱 아키텍처', score: 30 }, { subject: '배포/운영', score: 25 },
+      ],
+    },
   }
+
+  const fb = fallbacks[field] || fallbacks.security
+  return { ...fb, level }
 }
 
 /* =========================================================
@@ -317,6 +563,7 @@ function getFallbackAnalysis(history) {
 
 export default function LevelTest() {
   const [step, setStep] = useState('intro')     // 'intro' | 'quiz' | 'chat' | 'analyzing' | 'results'
+  const [selectedField, setSelectedField] = useState(null)  // IT field selection
   const [qIdx, setQIdx] = useState(0)            // current question index
   const [currentQ, setCurrentQ] = useState(null)  // current question object
   const [history, setHistory] = useState([])      // all Q&A pairs
@@ -341,10 +588,11 @@ export default function LevelTest() {
 
   /* ----- Start the test ----- */
   const startTest = () => {
+    const questions = getInitialQuestions(selectedField)
     setStep('quiz')
     setQIdx(0)
     setHistory([])
-    setCurrentQ(initialQuestions[0])
+    setCurrentQ(questions[0])
   }
 
   /* ----- Build answer string from current state ----- */
@@ -433,11 +681,12 @@ export default function LevelTest() {
     setQIdx(nextIdx)
 
     // Use initial questions if available, otherwise ask AI
-    if (nextIdx < initialQuestions.length) {
-      setCurrentQ(initialQuestions[nextIdx])
+    const questions = getInitialQuestions(selectedField)
+    if (nextIdx < questions.length) {
+      setCurrentQ(questions[nextIdx])
     } else {
       setIsLoading(true)
-      const aiQ = await generateNextQuestion(newHistory)
+      const aiQ = await generateNextQuestion(newHistory, selectedField)
       setIsLoading(false)
 
       if (aiQ) {
@@ -452,23 +701,24 @@ export default function LevelTest() {
   /* ----- Finish test & generate analysis ----- */
   const finishTest = async (finalHistory) => {
     setStep('analyzing')
-    const result = await generateAnalysis(finalHistory)
-    setAnalysis(result || getFallbackAnalysis(finalHistory))
+    const result = await generateAnalysis(finalHistory, selectedField)
+    setAnalysis(result || getFallbackAnalysis(finalHistory, selectedField))
     setStep('results')
   }
 
   /* ----- Start chat mode ----- */
   const startChat = async () => {
+    const fieldLabel = IT_FIELDS.find(f => f.id === selectedField)?.label || 'IT'
     setStep('chat')
     setChatMessages([])
     setChatUserMsgCount(0)
     setIsChatLoading(true)
 
     const greeting = await generateChatResponse([
-      { role: 'user', content: '안녕하세요, 학습 상담을 시작하고 싶습니다.' },
-    ])
+      { role: 'user', content: `안녕하세요, ${fieldLabel} 학습 상담을 시작하고 싶습니다.` },
+    ], selectedField)
 
-    const firstMsg = greeting || '안녕하세요! 사이버 보안 학습 상담사입니다. 현재 IT 분야에서 어떤 부분에 가장 관심이 있으신가요? 보안, 개발, 인프라 등 편하게 말씀해주세요!'
+    const firstMsg = greeting || `안녕하세요! ${fieldLabel} 학습 상담사입니다. ${fieldLabel} 분야에서 어떤 부분에 가장 관심이 있으신가요? 편하게 말씀해주세요!`
     setChatMessages([{ role: 'assistant', content: firstMsg }])
     setIsChatLoading(false)
   }
@@ -485,7 +735,7 @@ export default function LevelTest() {
     setChatUserMsgCount((c) => c + 1)
     setIsChatLoading(true)
 
-    const aiReply = await generateChatResponse(newMessages)
+    const aiReply = await generateChatResponse(newMessages, selectedField)
     const replyMsg = aiReply || '흥미로운 답변이네요! 조금 더 자세히 말씀해주시겠어요?'
     setChatMessages((prev) => [...prev, { role: 'assistant', content: replyMsg }])
     setIsChatLoading(false)
@@ -500,6 +750,7 @@ export default function LevelTest() {
   /* ----- Reset ----- */
   const resetTest = () => {
     setStep('intro')
+    setSelectedField(null)
     setQIdx(0)
     setCurrentQ(null)
     setHistory([])
@@ -563,44 +814,95 @@ export default function LevelTest() {
                   <div style={s.aiBadge}>&#10024; AI 적응형 분석 활성화</div>
                 </div>
 
-                {/* Option cards */}
-                <div style={s.optionCardsRow}>
-                  {/* Quiz option */}
-                  <Card hover={false} style={s.optionCard} onClick={startTest}>
-                    <div style={s.optionCardIcon}>
-                      <Target size={32} />
+                {/* Step 1: Field selection */}
+                {!selectedField && (
+                  <>
+                    <h2 style={s.fieldSelectTitle}>분야를 선택하세요</h2>
+                    <div style={s.fieldGrid}>
+                      {IT_FIELDS.map((field) => {
+                        const Icon = field.icon
+                        return (
+                          <Card
+                            key={field.id}
+                            hover={false}
+                            style={s.fieldCard}
+                            onClick={() => setSelectedField(field.id)}
+                          >
+                            <div style={{ ...s.fieldCardIcon, background: `${field.color}14`, color: field.color }}>
+                              <Icon size={28} />
+                            </div>
+                            <h3 style={s.fieldCardLabel}>{field.label}</h3>
+                            <p style={s.fieldCardDesc}>{field.desc}</p>
+                          </Card>
+                        )
+                      })}
                     </div>
-                    <h3 style={s.optionCardTitle}>AI 적응형 테스트</h3>
-                    <p style={s.optionCardDesc}>
-                      객관식 선택지 + 주관식 입력으로 구성된 체계적인 테스트
-                    </p>
-                    <div style={s.optionCardMeta}>
-                      <span style={s.optionCardTag}>객관식 + 주관식</span>
-                      <span style={s.optionCardTag}>총 {MAX_QUESTIONS}문항</span>
-                    </div>
-                    <div style={s.optionCardAction}>
-                      시작하기 <ChevronRight size={16} />
-                    </div>
-                  </Card>
+                  </>
+                )}
 
-                  {/* Chat option */}
-                  <Card hover={false} style={s.optionCard} onClick={startChat}>
-                    <div style={{ ...s.optionCardIcon, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08))', color: '#10B981' }}>
-                      <MessageSquare size={32} />
+                {/* Step 2: Mode selection (after field chosen) */}
+                {selectedField && (
+                  <>
+                    {/* Selected field badge */}
+                    <div style={s.selectedFieldRow}>
+                      {(() => {
+                        const f = IT_FIELDS.find(fi => fi.id === selectedField)
+                        const Icon = f.icon
+                        return (
+                          <div style={{ ...s.selectedFieldBadge, borderColor: `${f.color}30`, background: `${f.color}08` }}>
+                            <Icon size={16} style={{ color: f.color }} />
+                            <span style={{ color: f.color, fontWeight: 700, fontSize: '0.88rem' }}>{f.label}</span>
+                          </div>
+                        )
+                      })()}
+                      <button
+                        style={s.changeFieldBtn}
+                        onClick={() => setSelectedField(null)}
+                      >
+                        다른 분야 선택
+                      </button>
                     </div>
-                    <h3 style={s.optionCardTitle}>AI 대화형 상담</h3>
-                    <p style={s.optionCardDesc}>
-                      자유로운 대화를 통해 관심 분야와 학습 목표를 구체화
-                    </p>
-                    <div style={s.optionCardMeta}>
-                      <span style={s.optionCardTag}>자유 대화</span>
-                      <span style={s.optionCardTag}>맞춤형 분석</span>
+
+                    {/* Option cards */}
+                    <div style={s.optionCardsRow}>
+                      {/* Quiz option */}
+                      <Card hover={false} style={s.optionCard} onClick={startTest}>
+                        <div style={s.optionCardIcon}>
+                          <Target size={32} />
+                        </div>
+                        <h3 style={s.optionCardTitle}>AI 적응형 테스트</h3>
+                        <p style={s.optionCardDesc}>
+                          객관식 선택지 + 주관식 입력으로 구성된 체계적인 테스트
+                        </p>
+                        <div style={s.optionCardMeta}>
+                          <span style={s.optionCardTag}>객관식 + 주관식</span>
+                          <span style={s.optionCardTag}>총 {MAX_QUESTIONS}문항</span>
+                        </div>
+                        <div style={s.optionCardAction}>
+                          시작하기 <ChevronRight size={16} />
+                        </div>
+                      </Card>
+
+                      {/* Chat option */}
+                      <Card hover={false} style={s.optionCard} onClick={startChat}>
+                        <div style={{ ...s.optionCardIcon, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08))', color: '#10B981' }}>
+                          <MessageSquare size={32} />
+                        </div>
+                        <h3 style={s.optionCardTitle}>AI 대화형 상담</h3>
+                        <p style={s.optionCardDesc}>
+                          자유로운 대화를 통해 관심 분야와 학습 목표를 구체화
+                        </p>
+                        <div style={s.optionCardMeta}>
+                          <span style={s.optionCardTag}>자유 대화</span>
+                          <span style={s.optionCardTag}>맞춤형 분석</span>
+                        </div>
+                        <div style={{ ...s.optionCardAction, background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                          시작하기 <ChevronRight size={16} style={{ color: '#10B981' }} />
+                        </div>
+                      </Card>
                     </div>
-                    <div style={{ ...s.optionCardAction, background: 'linear-gradient(135deg, #10B981, #06B6D4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                      시작하기 <ChevronRight size={16} style={{ color: '#10B981' }} />
-                    </div>
-                  </Card>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1115,6 +1417,74 @@ const s = {
     fontSize: '0.8rem',
     fontWeight: 600,
     border: '1px solid rgba(16,185,129,0.15)',
+  },
+
+  /* ====== Field Selection ====== */
+  fieldSelectTitle: {
+    fontSize: '1.1rem',
+    fontWeight: 700,
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: '20px',
+  },
+  fieldGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '14px',
+  },
+  fieldCard: {
+    padding: '24px 20px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.2s ease',
+    border: '1.5px solid #E2E8F0',
+  },
+  fieldCardIcon: {
+    width: '52px',
+    height: '52px',
+    borderRadius: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 12px',
+  },
+  fieldCardLabel: {
+    fontSize: '0.95rem',
+    fontWeight: 700,
+    color: '#0F172A',
+    marginBottom: '6px',
+  },
+  fieldCardDesc: {
+    color: '#94A3B8',
+    fontSize: '0.78rem',
+    lineHeight: 1.5,
+  },
+  selectedFieldRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '24px',
+  },
+  selectedFieldBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    borderRadius: '100px',
+    border: '1.5px solid',
+  },
+  changeFieldBtn: {
+    padding: '6px 14px',
+    borderRadius: '8px',
+    border: '1px solid #E2E8F0',
+    background: 'transparent',
+    color: '#94A3B8',
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s ease',
   },
 
   /* ====== Intro Option Cards ====== */
