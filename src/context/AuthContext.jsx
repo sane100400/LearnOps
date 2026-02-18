@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { dummyUsers } from '../data/users'
 
 const AuthContext = createContext(null)
@@ -8,18 +8,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('learnops_user')
-    return saved ? JSON.parse(saved) : null
-  })
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('learnops_user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('learnops_user')
-    }
-  }, [user])
+  const [user, setUser] = useState(null)
 
   const login = (email) => {
     const found = dummyUsers.find((u) => u.email === email)

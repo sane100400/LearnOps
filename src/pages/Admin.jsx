@@ -4,7 +4,8 @@ import {
   ArrowLeft, Edit3, Trash2, Save, Send, CheckCircle2, Clock,
   TrendingUp, Terminal, MessageSquare, ChevronRight, Loader2,
   Mail, Globe, Network, Monitor, Lock, Cloud, Bug,
-  BarChart3, Eye, ChevronDown, ChevronUp, Map, Layers,
+  BarChart3, Eye, ChevronDown, ChevronUp, Map, Layers, Award,
+  Star, Zap, Flame, Trophy, X, Gift,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -218,6 +219,79 @@ export default function Admin() {
   const [labTimeout, setLabTimeout] = useState(120)
   const [notifOn, setNotifOn] = useState(true)
 
+  // Rewards
+  const [rewardSettings, setRewardSettings] = useState([])
+  const [rewardAssignments, setRewardAssignments] = useState([])
+  const [rwPanel, setRwPanel] = useState(null) // null | { mode: 'add' | 'edit', data }
+  const [rwAssignForm, setRwAssignForm] = useState({ userId: '', rewardId: '', reason: '' })
+  const [rwLoading, setRwLoading] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'rewards') {
+      fetch('/api/rewards/settings').then(r => r.json()).then(setRewardSettings).catch(() => {})
+      fetch('/api/rewards/assignments').then(r => r.json()).then(setRewardAssignments).catch(() => {})
+    }
+  }, [activeTab])
+
+  const rwSaveItem = async (item) => {
+    setRwLoading(true)
+    try {
+      const res = await fetch('/api/rewards/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) })
+      if (res.ok) {
+        const updated = await fetch('/api/rewards/settings').then(r => r.json())
+        setRewardSettings(updated)
+        setRwPanel(null)
+      }
+    } catch {}
+    setRwLoading(false)
+  }
+
+  const rwDeleteItem = async (id) => {
+    try {
+      await fetch(`/api/rewards/settings/${id}`, { method: 'DELETE' })
+      setRewardSettings(p => p.filter(s => s.id !== id))
+    } catch {}
+  }
+
+  const rwAssign = async () => {
+    const { userId, rewardId, reason } = rwAssignForm
+    if (!userId || !rewardId) return
+    const learner = MOCK_LEARNERS.find(l => l.id === Number(userId))
+    if (!learner) return
+    setRwLoading(true)
+    try {
+      const res = await fetch('/api/rewards/assignments', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId: Number(rewardId), userId: Number(userId), userName: learner.name, team: learner.group, reason })
+      })
+      if (res.ok) {
+        const item = await res.json()
+        setRewardAssignments(p => [...p, item])
+        setRwAssignForm({ userId: '', rewardId: '', reason: '' })
+      }
+    } catch {}
+    setRwLoading(false)
+  }
+
+  const REWARD_ICONS = { Trophy, Star, Zap, Award, Flame }
+  const REWARD_TYPE_LABELS = { badge: '뱃지', point: '포인트', certificate: '수료증' }
+  const REWARD_TYPE_COLORS = { badge: '#4F46E5', point: '#F59E0B', certificate: '#10B981' }
+
+  // Team stats for rewards tab
+  const teamStats = (() => {
+    const teams = {}
+    MOCK_LEARNERS.forEach(l => {
+      if (!teams[l.group]) teams[l.group] = { name: l.group, members: 0, totalProgress: 0, completedLabs: 0, rewardCount: 0 }
+      teams[l.group].members += 1
+      teams[l.group].totalProgress += Math.round((l.completedLabs / Math.max(l.totalAssigned, 1)) * 100)
+      teams[l.group].completedLabs += l.completedLabs
+    })
+    rewardAssignments.forEach(a => {
+      if (teams[a.team]) teams[a.team].rewardCount += 1
+    })
+    return Object.values(teams).map(t => ({ ...t, avgProgress: Math.round(t.totalProgress / Math.max(t.members, 1)) }))
+  })()
+
   const chatEndRef = useRef(null)
   const addChatEndRef = useRef(null)
 
@@ -256,6 +330,7 @@ export default function Admin() {
     { id: 'roadmaps', label: '로드맵 관리', icon: Map },
     { id: 'learners', label: '학습자 관리', icon: Users },
     { id: 'settings', label: '조직 설정', icon: Settings },
+    { id: 'rewards', label: '보상 관리', icon: Award },
   ]
 
   // --- Roadmap CRUD helpers ---
@@ -825,6 +900,145 @@ export default function Admin() {
           </Card>
           <Button size="large"><Save size={16} /> 설정 저장</Button>
         </div>}
+
+        {/* ===== REWARDS ===== */}
+        {activeTab === 'rewards' && <>
+          {/* (A) 보상 항목 관리 */}
+          <Card hover={false} style={{ padding: '28px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={st.secHead}><Gift size={20} style={{ marginRight: '8px', color: '#4F46E5' }} /> 보상 항목 관리</h3>
+              <Button size="small" onClick={() => setRwPanel({ mode: 'add', data: { name: '', type: 'badge', icon: 'Trophy', description: '', criteria: '', value: 1 } })}><Plus size={14} /> 항목 추가</Button>
+            </div>
+            <table style={st.table}>
+              <thead><tr>
+                <th style={st.th}>아이콘</th><th style={st.th}>이름</th><th style={st.th}>유형</th><th style={st.th}>기준</th><th style={st.th}>값</th><th style={{ ...st.th, textAlign: 'right' }}>관리</th>
+              </tr></thead>
+              <tbody>
+                {rewardSettings.map(rw => {
+                  const Icon = REWARD_ICONS[rw.icon] || Award
+                  return (
+                    <tr key={rw.id}>
+                      <td style={st.td}><div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${REWARD_TYPE_COLORS[rw.type]}15`, color: REWARD_TYPE_COLORS[rw.type], display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></div></td>
+                      <td style={{ ...st.td, fontWeight: 600 }}>{rw.name}</td>
+                      <td style={st.td}><span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, background: `${REWARD_TYPE_COLORS[rw.type]}15`, color: REWARD_TYPE_COLORS[rw.type] }}>{REWARD_TYPE_LABELS[rw.type]}</span></td>
+                      <td style={st.td}>{rw.criteria}</td>
+                      <td style={st.td}>{rw.value}</td>
+                      <td style={{ ...st.td, textAlign: 'right' }}>
+                        <button onClick={() => setRwPanel({ mode: 'edit', data: { ...rw } })} style={{ ...st.backBtn, marginBottom: 0, marginRight: '6px', padding: '6px 10px' }}><Edit3 size={13} /></button>
+                        <button onClick={() => rwDeleteItem(rw.id)} style={{ ...st.backBtn, marginBottom: 0, padding: '6px 10px', color: '#EF4444', borderColor: '#FCA5A5' }}><Trash2 size={13} /></button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {rewardSettings.length === 0 && <tr><td colSpan={6} style={{ ...st.td, textAlign: 'center', color: '#94A3B8' }}>등록된 보상 항목이 없습니다.</td></tr>}
+              </tbody>
+            </table>
+          </Card>
+
+          {/* Slide panel for add/edit */}
+          {rwPanel && <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '420px', background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)', zIndex: 1000, padding: '32px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>{rwPanel.mode === 'add' ? '보상 항목 추가' : '보상 항목 수정'}</h3>
+              <button onClick={() => setRwPanel(null)} style={{ ...st.backBtn, marginBottom: 0 }}><X size={16} /></button>
+            </div>
+            <div style={st.field}><label style={st.fLabel}>이름</label><input style={st.fInput} value={rwPanel.data.name} onChange={e => setRwPanel(p => ({ ...p, data: { ...p.data, name: e.target.value } }))} placeholder="보상 이름 입력" /></div>
+            <div style={st.field}><label style={st.fLabel}>유형</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {Object.entries(REWARD_TYPE_LABELS).map(([k, v]) => <button key={k} onClick={() => setRwPanel(p => ({ ...p, data: { ...p.data, type: k } }))} style={{ ...st.radioBtn, ...(rwPanel.data.type === k ? st.radioBtnAct : {}) }}>{v}</button>)}
+              </div>
+            </div>
+            <div style={st.field}><label style={st.fLabel}>아이콘</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {Object.entries(REWARD_ICONS).map(([k, I]) => <button key={k} onClick={() => setRwPanel(p => ({ ...p, data: { ...p.data, icon: k } }))} style={{ ...st.radioBtn, width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, ...(rwPanel.data.icon === k ? st.radioBtnAct : {}) }}><I size={18} /></button>)}
+              </div>
+            </div>
+            <div style={st.field}><label style={st.fLabel}>설명</label><textarea style={{ ...st.fInput, minHeight: '80px', resize: 'vertical' }} value={rwPanel.data.description} onChange={e => setRwPanel(p => ({ ...p, data: { ...p.data, description: e.target.value } }))} placeholder="보상에 대한 설명" /></div>
+            <div style={st.field}><label style={st.fLabel}>기준</label><input style={st.fInput} value={rwPanel.data.criteria} onChange={e => setRwPanel(p => ({ ...p, data: { ...p.data, criteria: e.target.value } }))} placeholder="부여 기준" /></div>
+            <div style={st.field}><label style={st.fLabel}>값</label><input type="number" style={{ ...st.fInput, maxWidth: '200px' }} value={rwPanel.data.value} onChange={e => setRwPanel(p => ({ ...p, data: { ...p.data, value: Number(e.target.value) } }))} /></div>
+            <Button size="large" onClick={() => rwSaveItem(rwPanel.data)} disabled={rwLoading || !rwPanel.data.name}><Save size={16} /> {rwPanel.mode === 'add' ? '추가하기' : '저장하기'}</Button>
+          </div>}
+          {rwPanel && <div onClick={() => setRwPanel(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', zIndex: 999 }} />}
+
+          {/* (B) 조직별 성과 현황 */}
+          <Card hover={false} style={{ padding: '28px', marginBottom: '24px' }}>
+            <h3 style={st.secHead}><BarChart3 size={20} style={{ marginRight: '8px', color: '#06B6D4' }} /> 조직별 성과 현황</h3>
+            <div style={{ height: '280px', marginBottom: '24px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={teamStats} barGap={8}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                  <XAxis dataKey="name" tick={{ fill: '#64748B', fontSize: 13 }} />
+                  <YAxis tick={{ fill: '#64748B', fontSize: 12 }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="avgProgress" name="평균 진행률(%)" fill="#4F46E5" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="completedLabs" name="완료 모듈 수" fill="#06B6D4" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={st.legend}>
+              <span style={st.legItem}><span style={{ ...st.legDot, background: '#4F46E5' }} />평균 진행률(%)</span>
+              <span style={st.legItem}><span style={{ ...st.legDot, background: '#06B6D4' }} />완료 모듈 수</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${teamStats.length}, 1fr)`, gap: '16px', marginTop: '24px' }}>
+              {teamStats.map(t => (
+                <Card key={t.name} style={{ padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: '12px' }}>{t.name}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+                    <div><div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#4F46E5' }}>{t.members}</div><div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>인원</div></div>
+                    <div><div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#06B6D4' }}>{t.avgProgress}%</div><div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>평균 진행률</div></div>
+                    <div><div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#F59E0B' }}>{t.rewardCount}</div><div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>보상 횟수</div></div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </Card>
+
+          {/* (C) 보상 부여 */}
+          <Card hover={false} style={{ padding: '28px', marginBottom: '24px' }}>
+            <h3 style={st.secHead}><Award size={20} style={{ marginRight: '8px', color: '#F59E0B' }} /> 보상 부여</h3>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <label style={st.fLabel}>학습자 선택</label>
+                <select style={st.sel} value={rwAssignForm.userId} onChange={e => setRwAssignForm(p => ({ ...p, userId: e.target.value }))}>
+                  <option value="">-- 학습자 --</option>
+                  {MOCK_LEARNERS.map(l => <option key={l.id} value={l.id}>{l.name} ({l.group})</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: '160px' }}>
+                <label style={st.fLabel}>보상 항목 선택</label>
+                <select style={st.sel} value={rwAssignForm.rewardId} onChange={e => setRwAssignForm(p => ({ ...p, rewardId: e.target.value }))}>
+                  <option value="">-- 보상 항목 --</option>
+                  {rewardSettings.map(rw => <option key={rw.id} value={rw.id}>{rw.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 2, minWidth: '200px' }}>
+                <label style={st.fLabel}>사유</label>
+                <input style={st.fInput} value={rwAssignForm.reason} onChange={e => setRwAssignForm(p => ({ ...p, reason: e.target.value }))} placeholder="보상 부여 사유 입력..." />
+              </div>
+              <Button size="small" onClick={rwAssign} disabled={rwLoading || !rwAssignForm.userId || !rwAssignForm.rewardId}><Send size={14} /> 부여하기</Button>
+            </div>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', marginBottom: '14px' }}>최근 부여 이력</h4>
+            <table style={st.table}>
+              <thead><tr>
+                <th style={st.th}>날짜</th><th style={st.th}>학습자</th><th style={st.th}>팀</th><th style={st.th}>보상명</th><th style={st.th}>사유</th>
+              </tr></thead>
+              <tbody>
+                {[...rewardAssignments].reverse().map(a => {
+                  const rw = rewardSettings.find(r => r.id === a.rewardId)
+                  return (
+                    <tr key={a.id}>
+                      <td style={st.td}>{a.date}</td>
+                      <td style={{ ...st.td, fontWeight: 600 }}>{a.userName}</td>
+                      <td style={st.td}><span style={{ ...st.grpTag }}>{a.team}</span></td>
+                      <td style={st.td}>{rw ? rw.name : `보상 #${a.rewardId}`}</td>
+                      <td style={st.td}>{a.reason}</td>
+                    </tr>
+                  )
+                })}
+                {rewardAssignments.length === 0 && <tr><td colSpan={5} style={{ ...st.td, textAlign: 'center', color: '#94A3B8' }}>부여 이력이 없습니다.</td></tr>}
+              </tbody>
+            </table>
+          </Card>
+        </>}
       </main>
       <AdminStyles />
     </div>

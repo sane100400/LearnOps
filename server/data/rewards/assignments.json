@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "rewardId": 1,
+    "userId": 1,
+    "userName": "김보안",
+    "team": "A팀",
+    "date": "2026-02-15",
+    "reason": "웹 보안 입문 로드맵 전체 완료"
+  },
+  {
+    "id": 2,
+    "rewardId": 2,
+    "userId": 2,
+    "userName": "이해커",
+    "team": "A팀",
+    "date": "2026-02-10",
+    "reason": "2월 첫째 주 최고 학습 성과"
+  },
+  {
+    "id": 3,
+    "rewardId": 3,
+    "userId": 1,
+    "userName": "김보안",
+    "team": "A팀",
+    "date": "2026-02-08",
+    "reason": "누적 포인트 1000점 달성"
+  },
+  {
+    "id": 4,
+    "rewardId": 5,
+    "userId": 3,
+    "userName": "박분석",
+    "team": "B팀",
+    "date": "2026-02-01",
+    "reason": "30일 연속 학습 달성"
+  }
+]

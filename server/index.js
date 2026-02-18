@@ -8,6 +8,7 @@ import { WebSocketServer } from 'ws';
 import { URL } from 'url';
 import labRouter from './routes/lab.js';
 import aiRouter from './routes/ai.js';
+import rewardsRouter from './routes/rewards.js';
 import { attachWebSocket, cleanupOrphans } from './docker.js';
 
 const PORT = process.env.SERVER_PORT || 3001;
@@ -43,6 +44,7 @@ const aiLimiter = rateLimit({
 // Routes
 app.use('/api/ai', aiLimiter, aiRouter);
 app.use('/api/lab', labLimiter, labRouter);
+app.use('/api/rewards', rewardsRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
