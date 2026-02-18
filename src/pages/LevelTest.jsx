@@ -14,6 +14,10 @@ import {
   Database,
   Smartphone,
   BookOpen,
+  Save,
+  Clock,
+  FileText,
+  Code,
 } from 'lucide-react'
 import {
   RadarChart,
@@ -285,13 +289,19 @@ answer는 정답 인덱스(0~3)
 
 현재까지 ${history.length}개 질문 완료. 총 ${MAX_QUESTIONS}개 질문 예정.`
 
+  // 직전 답변을 별도 강조하여 AI가 맥락을 잡도록 함
+  const lastEntry = history[history.length - 1]
+  const lastAnswerHighlight = lastEntry
+    ? `\n\n[직전 답변 — 이 내용을 반드시 반영하여 후속 질문을 만드세요]\nQ: ${lastEntry.question}\nA: "${lastEntry.answer}"`
+    : ''
+
   try {
     const content = await aiProxy(
       [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `이전 문답 기록:\n${historyText}\n\n다음 질문을 생성해주세요.` },
+        { role: 'user', content: `이전 문답 기록:\n${historyText}${lastAnswerHighlight}\n\n위 답변 내용을 반영하여 다음 질문을 생성해주세요.` },
       ],
-      0.8,
+      0.9,
       500,
     )
     if (!content) return null
@@ -419,7 +429,7 @@ async function generateCurriculum(analysis, field) {
   const fieldLabel = fieldInfo?.label || 'IT'
 
   const systemPrompt = `당신은 ${fieldLabel} 분야 학습 커리큘럼 설계 전문가입니다.
-사용자의 레벨테스트 분석 결과를 바탕으로 맞춤형 학습 로드맵을 생성하세요.
+사용자의 레벨테스트 분석 결과를 바탕으로 주차별 모듈 단위의 세분화된 맞춤형 학습 로드맵을 생성하세요.
 
 분석 결과:
 - 분야: ${fieldLabel}
@@ -431,22 +441,24 @@ async function generateCurriculum(analysis, field) {
 
 규칙:
 - 사용자의 레벨에 맞는 난이도로 설계하세요
-- 각 단계가 이전 단계를 기반으로 자연스럽게 이어지도록 구성하세요
-- 실습 프로젝트는 구체적이고 실행 가능해야 합니다
-- 4~6단계로 구성하세요
+- 각 주차가 이전 주차를 기반으로 자연스럽게 이어지도록 구성하세요
+- 6~10주차로 구성하세요
+- 각 주차에 이론과 실습 모듈을 3~5개씩 포함하세요
+- 모듈의 type은 "이론" 또는 "실습" 중 하나
 - 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
 
 {
-  "title": "맞춤 커리큘럼 제목",
+  "title": "커리큘럼 제목",
   "totalWeeks": 8,
-  "steps": [
+  "weeks": [
     {
-      "step": 1,
-      "title": "단계 제목",
-      "duration": "1~2주",
-      "goal": "이 단계의 학습 목표",
-      "topics": ["토픽1", "토픽2", "토픽3"],
-      "projects": "실습 프로젝트 설명"
+      "week": 1,
+      "title": "주차 제목",
+      "goal": "주차 학습 목표",
+      "modules": [
+        { "type": "이론", "title": "모듈명", "desc": "상세 설명", "time": "30분" },
+        { "type": "실습", "title": "모듈명", "desc": "상세 설명", "time": "60분" }
+      ]
     }
   ]
 }`
@@ -458,7 +470,7 @@ async function generateCurriculum(analysis, field) {
         { role: 'user', content: '분석 결과를 바탕으로 맞춤 학습 커리큘럼을 생성해주세요.' },
       ],
       0.7,
-      2000,
+      4000,
     )
     if (!content) return null
 
@@ -485,68 +497,197 @@ function getFallbackCurriculum(analysis, field) {
   const fallbacks = {
     security: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: 'IT 기초 & 네트워크', duration: '1~2주', goal: '컴퓨터 네트워크와 운영체제 기초 이해', topics: ['TCP/IP', '리눅스 기본 명령어', 'HTTP 프로토콜'], projects: '가상 환경에서 리눅스 서버 구축 및 네트워크 패킷 캡처 분석' },
-        { step: 2, title: '웹 보안 기초', duration: '2~3주', goal: '웹 애플리케이션의 주요 취약점 이해', topics: ['OWASP Top 10', 'XSS', 'SQL Injection'], projects: 'DVWA/WebGoat으로 웹 취약점 실습' },
-        { step: 3, title: '시스템 & 네트워크 보안', duration: '2~3주', goal: '시스템/네트워크 레벨 보안 이해', topics: ['방화벽', '포트 스캐닝', '권한 상승'], projects: 'CTF 초급 문제 10개 풀이' },
-        { step: 4, title: '모의해킹 실전', duration: '2~3주', goal: '실전 모의해킹 워크플로우 체험', topics: ['정보 수집', '취약점 분석', '보고서 작성'], projects: 'HackTheBox 머신 3개 풀이 및 보고서 작성' },
-        { step: 5, title: '포트폴리오 & 자격증', duration: '2주', goal: '보안 커리어 준비', topics: ['정보보안기사', 'CTF 대회', '이력서 작성'], projects: '개인 보안 프로젝트 포트폴리오 완성' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: 'IT 기초 & 네트워크', goal: '컴퓨터 네트워크와 운영체제 기초 이해', modules: [
+          { type: '이론', title: '정보보안 개요', desc: 'CIA Triad, 보안 위협 종류, 핵심 개념 학습', time: '30분' },
+          { type: '이론', title: 'OSI 모델과 네트워크 기초', desc: 'OSI 7계층, TCP/IP, IP 주소와 포트', time: '45분' },
+          { type: '실습', title: 'Wireshark 패킷 분석', desc: '네트워크 패킷 캡처 및 분석 실습', time: '60분' },
+          { type: '실습', title: 'Nmap 포트 스캐닝', desc: '포트 스캐닝 도구 실습', time: '50분' },
+        ]},
+        { week: 2, title: '웹 보안 기초', goal: '웹 애플리케이션의 주요 취약점 이해', modules: [
+          { type: '이론', title: 'HTTP/HTTPS 프로토콜', desc: 'HTTP 메서드, 상태 코드, TLS 암호화', time: '35분' },
+          { type: '이론', title: 'OWASP Top 10', desc: '주요 웹 취약점 10가지와 방어 원칙', time: '40분' },
+          { type: '실습', title: 'SQL Injection 실습', desc: 'DVWA 환경에서 SQLi 공격 및 방어', time: '60분' },
+          { type: '실습', title: 'XSS 공격과 방어', desc: 'Reflected/Stored XSS 실습', time: '55분' },
+        ]},
+        { week: 3, title: '시스템 보안', goal: '리눅스 시스템 보안 기초 이해', modules: [
+          { type: '이론', title: 'Linux 보안 기초', desc: '리눅스 파일 시스템, 사용자 관리', time: '40분' },
+          { type: '이론', title: '권한 관리와 접근 제어', desc: 'chmod, chown, ACL 설정', time: '35분' },
+          { type: '실습', title: '리눅스 취약점 분석', desc: '권한 상승 취약점 실습', time: '60분' },
+          { type: '실습', title: '로그 분석', desc: '시스템 로그 분석 및 이상 탐지', time: '50분' },
+        ]},
+        { week: 4, title: '암호학', goal: '암호화 기초 이론과 실습', modules: [
+          { type: '이론', title: '대칭키/비대칭키 암호화', desc: 'AES, RSA, 키 교환 프로토콜', time: '45분' },
+          { type: '이론', title: '해시 함수와 디지털 서명', desc: 'SHA, HMAC, PKI 인증서', time: '40분' },
+          { type: '실습', title: '암호화 알고리즘 구현', desc: 'Python으로 암호화 실습', time: '60분' },
+        ]},
+        { week: 5, title: '모의해킹 실전', goal: '실전 모의해킹 워크플로우 체험', modules: [
+          { type: '이론', title: '모의해킹 방법론', desc: '정보 수집, 취약점 분석, 보고서 작성 절차', time: '40분' },
+          { type: '실습', title: '정보 수집 실습', desc: 'Reconnaissance 도구 활용', time: '60분' },
+          { type: '실습', title: 'HackTheBox 풀이', desc: '초급 머신 풀이 및 보고서 작성', time: '90분' },
+        ]},
+        { week: 6, title: '포트폴리오 & 자격증', goal: '보안 커리어 준비', modules: [
+          { type: '이론', title: '보안 자격증 가이드', desc: '정보보안기사, CISSP, CEH 비교', time: '30분' },
+          { type: '실습', title: 'CTF 챌린지', desc: 'CTF 문제 풀이 실전 훈련', time: '90분' },
+          { type: '실습', title: '포트폴리오 완성', desc: '개인 보안 프로젝트 정리 및 발표', time: '60분' },
+        ]},
       ],
     },
     frontend: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: 'HTML/CSS 기초', duration: '1~2주', goal: '웹 페이지 구조와 스타일링 기초', topics: ['시맨틱 HTML', 'Flexbox/Grid', '반응형 디자인'], projects: '개인 포트폴리오 랜딩 페이지 제작' },
-        { step: 2, title: 'JavaScript 핵심', duration: '2~3주', goal: 'JS 핵심 문법과 비동기 처리 이해', topics: ['ES6+', 'DOM 조작', 'Promise/async-await'], projects: 'To-Do 앱 바닐라 JS로 구현' },
-        { step: 3, title: 'React 입문', duration: '2~3주', goal: 'React 컴포넌트와 상태 관리 기초', topics: ['JSX', 'useState/useEffect', 'React Router'], projects: 'React로 영화 검색 앱 구현' },
-        { step: 4, title: 'React 심화 & 상태관리', duration: '2주', goal: '대규모 앱 상태 관리 패턴 학습', topics: ['Context API', '커스텀 훅', 'Zustand/Redux'], projects: 'E-commerce 장바구니 기능 구현' },
-        { step: 5, title: '포트폴리오 프로젝트', duration: '2주', goal: '실전 프로젝트로 역량 증명', topics: ['API 연동', '배포', '성능 최적화'], projects: '풀스택 프로젝트 완성 및 Vercel 배포' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: 'HTML/CSS 기초', goal: '웹 페이지 구조와 스타일링 기초', modules: [
+          { type: '이론', title: '시맨틱 HTML', desc: 'HTML5 태그와 접근성', time: '30분' },
+          { type: '이론', title: 'CSS Flexbox/Grid', desc: '레이아웃 시스템 이해', time: '40분' },
+          { type: '실습', title: '반응형 랜딩 페이지', desc: '개인 포트폴리오 랜딩 페이지 제작', time: '60분' },
+        ]},
+        { week: 2, title: 'JavaScript 핵심', goal: 'JS 핵심 문법과 비동기 처리 이해', modules: [
+          { type: '이론', title: 'ES6+ 문법', desc: 'let/const, 화살표 함수, 구조분해', time: '40분' },
+          { type: '이론', title: 'DOM 조작과 이벤트', desc: 'DOM API, 이벤트 리스너', time: '35분' },
+          { type: '실습', title: 'To-Do 앱 구현', desc: '바닐라 JS로 CRUD 앱 제작', time: '60분' },
+          { type: '실습', title: '비동기 처리 실습', desc: 'Promise, async/await, fetch API', time: '50분' },
+        ]},
+        { week: 3, title: 'React 입문', goal: 'React 컴포넌트와 상태 관리 기초', modules: [
+          { type: '이론', title: 'JSX와 컴포넌트', desc: 'React 기본 개념과 컴포넌트 구조', time: '35분' },
+          { type: '이론', title: 'useState/useEffect', desc: 'React Hooks 기초', time: '40분' },
+          { type: '실습', title: '영화 검색 앱', desc: 'TMDB API 연동 React 앱', time: '60분' },
+        ]},
+        { week: 4, title: 'React 심화', goal: '대규모 앱 상태 관리 패턴 학습', modules: [
+          { type: '이론', title: 'Context API와 커스텀 훅', desc: '전역 상태 관리와 로직 재사용', time: '40분' },
+          { type: '실습', title: '장바구니 기능 구현', desc: 'E-commerce 장바구니 with 상태관리', time: '60분' },
+          { type: '실습', title: 'React Router', desc: '페이지 라우팅과 레이아웃 구현', time: '45분' },
+        ]},
+        { week: 5, title: '포트폴리오 프로젝트', goal: '실전 프로젝트로 역량 증명', modules: [
+          { type: '이론', title: '웹 성능 최적화', desc: 'Lighthouse, 코드 스플리팅, 메모이제이션', time: '35분' },
+          { type: '실습', title: '풀스택 프로젝트', desc: 'API 연동 프로젝트 완성', time: '90분' },
+          { type: '실습', title: 'Vercel 배포', desc: '프로젝트 배포 및 CI/CD 설정', time: '40분' },
+        ]},
       ],
     },
     backend: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: '프로그래밍 기초', duration: '1~2주', goal: '서버 개발을 위한 언어 기초', topics: ['Python/Node.js 선택', '자료구조', 'OOP 기초'], projects: '간단한 CLI 도구 제작' },
-        { step: 2, title: 'RESTful API 설계', duration: '2~3주', goal: 'REST API 설계 원칙과 구현', topics: ['HTTP 메서드', 'Express/FastAPI', '미들웨어'], projects: 'CRUD API 서버 구현' },
-        { step: 3, title: '데이터베이스', duration: '2~3주', goal: 'RDB와 NoSQL 활용 능력', topics: ['SQL 쿼리', 'ORM', '인덱싱/정규화'], projects: '게시판 API에 DB 연동' },
-        { step: 4, title: '인증 & 배포', duration: '2주', goal: '인증 시스템과 서버 배포', topics: ['JWT/OAuth', 'Docker', 'AWS EC2'], projects: '로그인 기능 구현 및 Docker로 배포' },
-        { step: 5, title: '실전 프로젝트', duration: '2주', goal: '실무 수준 백엔드 시스템 구축', topics: ['캐싱', '로깅', 'API 문서화'], projects: '실전 API 서버 프로젝트 완성' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: '프로그래밍 기초', goal: '서버 개발을 위한 언어 기초', modules: [
+          { type: '이론', title: '서버 언어 선택 가이드', desc: 'Python vs Node.js 비교', time: '30분' },
+          { type: '이론', title: '자료구조와 OOP', desc: '배열, 맵, 클래스, 상속', time: '40분' },
+          { type: '실습', title: 'CLI 도구 제작', desc: '간단한 커맨드라인 도구 구현', time: '60분' },
+        ]},
+        { week: 2, title: 'RESTful API 설계', goal: 'REST API 설계 원칙과 구현', modules: [
+          { type: '이론', title: 'HTTP와 REST 원칙', desc: 'HTTP 메서드, 상태 코드, REST 설계', time: '35분' },
+          { type: '이론', title: 'Express/FastAPI', desc: '프레임워크 구조와 미들웨어', time: '40분' },
+          { type: '실습', title: 'CRUD API 구현', desc: 'RESTful API 서버 구축 실습', time: '60분' },
+        ]},
+        { week: 3, title: '데이터베이스', goal: 'RDB와 NoSQL 활용', modules: [
+          { type: '이론', title: 'SQL 기초', desc: 'CRUD 쿼리, JOIN, 서브쿼리', time: '40분' },
+          { type: '이론', title: '정규화와 인덱싱', desc: 'DB 설계 원칙과 성능 최적화', time: '35분' },
+          { type: '실습', title: 'DB 연동 API', desc: '게시판 API에 DB 연동', time: '60분' },
+        ]},
+        { week: 4, title: '인증 & 보안', goal: '인증 시스템 구현', modules: [
+          { type: '이론', title: 'JWT와 OAuth', desc: '토큰 기반 인증과 소셜 로그인', time: '40분' },
+          { type: '실습', title: '로그인 시스템 구현', desc: '회원가입, 로그인, 토큰 관리', time: '60분' },
+          { type: '실습', title: 'API 보안', desc: 'Rate limiting, CORS, 입력 검증', time: '45분' },
+        ]},
+        { week: 5, title: '배포 & 실전', goal: '서버 배포와 실무 패턴', modules: [
+          { type: '이론', title: 'Docker 기초', desc: '컨테이너 개념과 Dockerfile 작성', time: '35분' },
+          { type: '실습', title: 'Docker 배포', desc: 'Docker로 API 서버 배포', time: '60분' },
+          { type: '실습', title: '실전 프로젝트', desc: '전체 백엔드 시스템 구축 및 문서화', time: '90분' },
+        ]},
       ],
     },
     infra: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: '리눅스 & 네트워크 기초', duration: '1~2주', goal: '서버 운영을 위한 기초 역량', topics: ['리눅스 명령어', '셸 스크립트', '네트워크 기초'], projects: 'VM 환경에서 리눅스 서버 세팅' },
-        { step: 2, title: '클라우드 서비스', duration: '2~3주', goal: 'AWS 핵심 서비스 활용', topics: ['EC2', 'S3', 'VPC/IAM'], projects: 'AWS에서 웹 서버 인프라 구축' },
-        { step: 3, title: '컨테이너 & 오케스트레이션', duration: '2~3주', goal: 'Docker와 Kubernetes 기초', topics: ['Docker', 'docker-compose', 'K8s 기초'], projects: '멀티 컨테이너 앱 배포' },
-        { step: 4, title: 'CI/CD & IaC', duration: '2주', goal: '자동화 파이프라인 구축', topics: ['GitHub Actions', 'Terraform', '모니터링'], projects: 'CI/CD 파이프라인 구축 및 자동 배포' },
-        { step: 5, title: '실전 DevOps', duration: '2주', goal: '프로덕션 환경 운영 역량', topics: ['로깅/모니터링', '장애 대응', '비용 최적화'], projects: '프로덕션 인프라 아키텍처 설계 및 구축' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: '리눅스 & 네트워크 기초', goal: '서버 운영 기초 역량', modules: [
+          { type: '이론', title: '리눅스 명령어', desc: '파일 시스템, 프로세스, 네트워크 명령', time: '40분' },
+          { type: '이론', title: '네트워크 기초', desc: 'TCP/IP, DNS, 포트, 방화벽', time: '35분' },
+          { type: '실습', title: '리눅스 서버 세팅', desc: 'VM에서 리눅스 서버 구축', time: '60분' },
+        ]},
+        { week: 2, title: '클라우드 서비스', goal: 'AWS 핵심 서비스 활용', modules: [
+          { type: '이론', title: 'AWS 핵심 서비스', desc: 'EC2, S3, VPC, IAM 개요', time: '40분' },
+          { type: '실습', title: '웹 서버 인프라 구축', desc: 'AWS에서 웹 서버 배포', time: '60분' },
+          { type: '실습', title: 'VPC와 보안 그룹', desc: '네트워크 설정과 보안 구성', time: '50분' },
+        ]},
+        { week: 3, title: '컨테이너', goal: 'Docker와 Kubernetes 기초', modules: [
+          { type: '이론', title: 'Docker 핵심', desc: 'Dockerfile, 이미지, 컨테이너', time: '40분' },
+          { type: '실습', title: 'docker-compose', desc: '멀티 컨테이너 앱 구성', time: '60분' },
+          { type: '실습', title: 'K8s 입문', desc: 'Pod, Service, Deployment', time: '60분' },
+        ]},
+        { week: 4, title: 'CI/CD & IaC', goal: '자동화 파이프라인 구축', modules: [
+          { type: '이론', title: 'CI/CD 개념', desc: 'GitHub Actions, 자동화 워크플로', time: '35분' },
+          { type: '실습', title: 'CI/CD 파이프라인', desc: '자동 테스트/배포 파이프라인 구축', time: '60분' },
+          { type: '실습', title: 'Terraform', desc: 'IaC로 인프라 프로비저닝', time: '60분' },
+        ]},
+        { week: 5, title: '실전 DevOps', goal: '프로덕션 환경 운영', modules: [
+          { type: '이론', title: '모니터링과 장애 대응', desc: 'Prometheus, Grafana, 알림 설정', time: '40분' },
+          { type: '실습', title: '로깅 시스템', desc: 'ELK 스택 또는 CloudWatch 구성', time: '60분' },
+          { type: '실습', title: '인프라 아키텍처 설계', desc: '프로덕션 아키텍처 설계 및 구축', time: '90분' },
+        ]},
       ],
     },
     data: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: 'Python & SQL 기초', duration: '1~2주', goal: '데이터 처리를 위한 도구 기초', topics: ['Python 문법', 'Pandas', 'SQL 쿼리'], projects: '공공 데이터셋 Python으로 전처리' },
-        { step: 2, title: '데이터 분석 & 시각화', duration: '2~3주', goal: 'EDA와 데이터 시각화 능력', topics: ['Matplotlib/Seaborn', '통계 기초', 'EDA 기법'], projects: '실제 데이터셋 EDA 리포트 작성' },
-        { step: 3, title: '머신러닝 기초', duration: '2~3주', goal: 'ML 핵심 알고리즘 이해와 실습', topics: ['회귀/분류', 'scikit-learn', '모델 평가'], projects: '캐글 초급 대회 참가' },
-        { step: 4, title: '딥러닝 & 고급 ML', duration: '2주', goal: '딥러닝 프레임워크 활용', topics: ['PyTorch/TensorFlow', 'CNN/RNN', '하이퍼파라미터 튜닝'], projects: '이미지 분류 모델 학습 및 배포' },
-        { step: 5, title: '실전 프로젝트', duration: '2주', goal: '엔드투엔드 데이터 프로젝트 경험', topics: ['데이터 파이프라인', '모델 서빙', '포트폴리오'], projects: '실전 ML 프로젝트 완성 및 발표' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: 'Python & SQL 기초', goal: '데이터 처리를 위한 도구 기초', modules: [
+          { type: '이론', title: 'Python 기초', desc: '자료형, 제어문, 함수, 라이브러리', time: '40분' },
+          { type: '이론', title: 'Pandas 입문', desc: 'DataFrame, 데이터 로드/정제', time: '35분' },
+          { type: '실습', title: '데이터 전처리', desc: '공공 데이터셋으로 전처리 실습', time: '60분' },
+        ]},
+        { week: 2, title: '데이터 분석 & 시각화', goal: 'EDA와 시각화 능력', modules: [
+          { type: '이론', title: '통계 기초', desc: '기술 통계, 확률 분포, 상관 분석', time: '40분' },
+          { type: '실습', title: '시각화 실습', desc: 'Matplotlib/Seaborn으로 시각화', time: '50분' },
+          { type: '실습', title: 'EDA 리포트', desc: '실제 데이터셋 EDA 리포트 작성', time: '60분' },
+        ]},
+        { week: 3, title: '머신러닝 기초', goal: 'ML 핵심 알고리즘 이해', modules: [
+          { type: '이론', title: '지도 학습', desc: '회귀, 분류, 평가 지표', time: '40분' },
+          { type: '이론', title: 'scikit-learn', desc: '모델 학습, 검증, 파이프라인', time: '35분' },
+          { type: '실습', title: '캐글 대회 참가', desc: '초급 대회 문제 풀이', time: '60분' },
+        ]},
+        { week: 4, title: '딥러닝', goal: '딥러닝 프레임워크 활용', modules: [
+          { type: '이론', title: 'PyTorch/TensorFlow', desc: '텐서, 뉴럴 네트워크 기초', time: '45분' },
+          { type: '실습', title: '이미지 분류', desc: 'CNN 모델로 이미지 분류 구현', time: '60분' },
+          { type: '실습', title: '모델 튜닝', desc: '하이퍼파라미터 튜닝과 실험 관리', time: '50분' },
+        ]},
+        { week: 5, title: '실전 프로젝트', goal: '엔드투엔드 데이터 프로젝트', modules: [
+          { type: '이론', title: '데이터 파이프라인', desc: 'ETL, 데이터 웨어하우스 개념', time: '35분' },
+          { type: '실습', title: 'ML 프로젝트', desc: '실전 ML 프로젝트 완성 및 배포', time: '90분' },
+          { type: '실습', title: '포트폴리오 정리', desc: '프로젝트 문서화 및 발표', time: '40분' },
+        ]},
       ],
     },
     mobile: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 12 : 8,
-      steps: [
-        { step: 1, title: '프로그래밍 & 플랫폼 기초', duration: '1~2주', goal: '모바일 개발 언어와 환경 세팅', topics: ['Swift/Kotlin/Dart 선택', '개발 환경 구축', 'UI 기초'], projects: '간단한 카운터 앱 제작' },
-        { step: 2, title: 'UI 구현 & 레이아웃', duration: '2~3주', goal: '모바일 UI 컴포넌트와 레이아웃 이해', topics: ['레이아웃 시스템', '네비게이션', '리스트 뷰'], projects: 'Todo 리스트 앱 UI 구현' },
-        { step: 3, title: 'API 연동 & 데이터', duration: '2~3주', goal: 'REST API 연동과 로컬 저장소 활용', topics: ['HTTP 통신', '로컬 DB', '상태 관리'], projects: '날씨 앱 (API 연동) 구현' },
-        { step: 4, title: '고급 기능', duration: '2주', goal: '네이티브 기능과 앱 아키텍처', topics: ['카메라/위치', '푸시 알림', 'MVVM 패턴'], projects: '사진 공유 앱 구현' },
-        { step: 5, title: '배포 & 포트폴리오', duration: '2주', goal: '스토어 배포와 포트폴리오 구성', topics: ['앱 빌드', '스토어 배포', '코드 리뷰'], projects: '개인 앱 프로젝트 스토어 배포' },
+      totalWeeks: isBegin ? 10 : 8,
+      weeks: [
+        { week: 1, title: '프로그래밍 & 플랫폼 기초', goal: '모바일 개발 환경 세팅', modules: [
+          { type: '이론', title: '플랫폼 선택 가이드', desc: 'Swift vs Kotlin vs Flutter 비교', time: '30분' },
+          { type: '이론', title: 'UI 기초', desc: '모바일 UI 컴포넌트와 레이아웃', time: '35분' },
+          { type: '실습', title: '카운터 앱', desc: '개발 환경 구축 및 첫 앱 제작', time: '60분' },
+        ]},
+        { week: 2, title: 'UI 구현 & 레이아웃', goal: '모바일 UI 구현 능력', modules: [
+          { type: '이론', title: '네비게이션 패턴', desc: 'Tab, Stack, Drawer 네비게이션', time: '35분' },
+          { type: '실습', title: 'Todo 앱 UI', desc: 'Todo 리스트 앱 UI 구현', time: '60분' },
+          { type: '실습', title: '리스트 뷰', desc: '동적 리스트와 스크롤 뷰', time: '45분' },
+        ]},
+        { week: 3, title: 'API 연동 & 데이터', goal: 'REST API 연동과 로컬 저장소', modules: [
+          { type: '이론', title: 'HTTP 통신', desc: 'REST API 호출과 JSON 파싱', time: '35분' },
+          { type: '실습', title: '날씨 앱', desc: 'API 연동 날씨 앱 구현', time: '60분' },
+          { type: '실습', title: '로컬 DB', desc: 'SQLite/Realm 로컬 저장소 실습', time: '50분' },
+        ]},
+        { week: 4, title: '고급 기능', goal: '네이티브 기능과 아키텍처', modules: [
+          { type: '이론', title: 'MVVM 패턴', desc: '앱 아키텍처 패턴 이해', time: '40분' },
+          { type: '실습', title: '카메라/위치', desc: '카메라, GPS 네이티브 기능 활용', time: '60분' },
+          { type: '실습', title: '사진 공유 앱', desc: '사진 공유 앱 구현', time: '60분' },
+        ]},
+        { week: 5, title: '배포 & 포트폴리오', goal: '스토어 배포와 포트폴리오', modules: [
+          { type: '이론', title: '앱 빌드와 배포', desc: '서명, 빌드 설정, 스토어 가이드', time: '30분' },
+          { type: '실습', title: '스토어 배포', desc: '앱 스토어 배포 실습', time: '60분' },
+          { type: '실습', title: '포트폴리오 정리', desc: '프로젝트 문서화 및 코드 리뷰', time: '40분' },
+        ]},
       ],
     },
   }
@@ -703,6 +844,7 @@ export default function LevelTest() {
   const [isLoading, setIsLoading] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [curriculum, setCurriculum] = useState(null)
+  const [curriculumSaved, setCurriculumSaved] = useState(false)
 
   // Answer state
   const [selectedOption, setSelectedOption] = useState(null)  // single-select highlight
@@ -905,6 +1047,7 @@ export default function LevelTest() {
     setIsLoading(false)
     setAnalysis(null)
     setCurriculum(null)
+    setCurriculumSaved(false)
     setSelectedOption(null)
     setMultiSelection([])
     setTextInput('')
@@ -933,6 +1076,20 @@ export default function LevelTest() {
     } catch { /* fall through to fallback */ }
     setCurriculum(result || getFallbackCurriculum(analysis, selectedField))
     setStep('curriculum')
+  }
+
+  /* ----- Save curriculum to server ----- */
+  const handleSaveCurriculum = async () => {
+    try {
+      const stored = localStorage.getItem('learnops_user')
+      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const res = await fetch('/api/ai/save-curriculum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, curriculum }),
+      })
+      if (res.ok) setCurriculumSaved(true)
+    } catch { /* best-effort */ }
   }
 
   /* ----- Can submit? ----- */
@@ -1458,47 +1615,96 @@ export default function LevelTest() {
                 </div>
               </div>
 
-              {/* Timeline */}
-              <div style={s.timeline}>
-                {(curriculum.steps || []).map((item, i) => {
-                  const isLast = i === curriculum.steps.length - 1
-                  return (
-                    <div key={i} style={s.timelineItem}>
-                      {/* Left: line + node */}
-                      <div style={s.timelineLeft}>
+              {/* Weeks format (new) */}
+              {curriculum.weeks ? (
+                <div style={s.weeksContainer}>
+                  {curriculum.weeks.map((week, wi) => (
+                    <div key={wi} style={s.weekBlock}>
+                      <div style={s.weekBlockHeader}>
                         <div style={{
-                          ...s.timelineNode,
-                          background: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'][i % 6],
+                          ...s.weekBadgeNode,
+                          background: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'][wi % 6],
                         }}>
-                          {item.step}
+                          W{week.week}
                         </div>
-                        {!isLast && <div style={s.timelineLine} />}
+                        <div style={s.weekBlockInfo}>
+                          <h3 style={s.weekBlockTitle}>{week.title}</h3>
+                          <p style={s.weekBlockGoal}>{week.goal}</p>
+                        </div>
                       </div>
-
-                      {/* Right: card */}
-                      <div style={s.timelineCard}>
-                        <div style={s.timelineCardHeader}>
-                          <h3 style={s.timelineCardTitle}>{item.title}</h3>
-                          <span style={s.timelineDuration}>{item.duration}</span>
-                        </div>
-                        <p style={s.timelineGoal}>{item.goal}</p>
-                        <div style={s.topicRow}>
-                          {(item.topics || []).map((topic, j) => (
-                            <span key={j} style={s.topicTag}>{topic}</span>
-                          ))}
-                        </div>
-                        <div style={s.projectArea}>
-                          <span style={s.projectLabel}>실습 프로젝트</span>
-                          <p style={s.projectText}>{item.projects}</p>
-                        </div>
+                      <div style={s.modulesGrid}>
+                        {(week.modules || []).map((mod, mi) => (
+                          <div key={mi} style={s.moduleCard}>
+                            <div style={s.moduleCardTop}>
+                              <span style={{
+                                ...s.moduleTypeBadge,
+                                background: mod.type === '이론' ? 'rgba(79,70,229,0.1)' : 'rgba(16,185,129,0.1)',
+                                color: mod.type === '이론' ? '#6366F1' : '#10B981',
+                              }}>
+                                {mod.type === '이론' ? <FileText size={12} /> : <Code size={12} />}
+                                {mod.type}
+                              </span>
+                              <span style={s.moduleTime}>
+                                <Clock size={12} style={{ color: '#94A3B8' }} />
+                                {mod.time}
+                              </span>
+                            </div>
+                            <h4 style={s.moduleCardTitle}>{mod.title}</h4>
+                            {mod.desc && <p style={s.moduleCardDesc}>{mod.desc}</p>}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                /* Steps format (legacy fallback) */
+                <div style={s.timeline}>
+                  {(curriculum.steps || []).map((item, i) => {
+                    const isLast = i === curriculum.steps.length - 1
+                    return (
+                      <div key={i} style={s.timelineItem}>
+                        <div style={s.timelineLeft}>
+                          <div style={{
+                            ...s.timelineNode,
+                            background: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'][i % 6],
+                          }}>
+                            {item.step}
+                          </div>
+                          {!isLast && <div style={s.timelineLine} />}
+                        </div>
+                        <div style={s.timelineCard}>
+                          <div style={s.timelineCardHeader}>
+                            <h3 style={s.timelineCardTitle}>{item.title}</h3>
+                            <span style={s.timelineDuration}>{item.duration}</span>
+                          </div>
+                          <p style={s.timelineGoal}>{item.goal}</p>
+                          <div style={s.topicRow}>
+                            {(item.topics || []).map((topic, j) => (
+                              <span key={j} style={s.topicTag}>{topic}</span>
+                            ))}
+                          </div>
+                          <div style={s.projectArea}>
+                            <span style={s.projectLabel}>실습 프로젝트</span>
+                            <p style={s.projectText}>{item.projects}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
 
-              {/* Bottom action */}
+              {/* Bottom actions */}
               <div style={s.curriculumActions}>
+                <Button
+                  size="large"
+                  onClick={handleSaveCurriculum}
+                  disabled={curriculumSaved}
+                  style={curriculumSaved ? { opacity: 0.6, pointerEvents: 'none' } : {}}
+                >
+                  <Save size={18} /> {curriculumSaved ? '저장 완료' : '커리큘럼에 저장하기'}
+                </Button>
                 <Button variant="secondary" size="large" onClick={resetTest}>
                   <RotateCcw size={18} /> 다시 테스트하기
                 </Button>
@@ -2473,5 +2679,98 @@ const s = {
     gap: '12px',
     justifyContent: 'center',
     marginTop: '12px',
+  },
+
+  /* ====== Weeks Format ====== */
+  weeksContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+    marginBottom: '24px',
+  },
+  weekBlock: {
+    background: '#fff',
+    border: '1px solid #E2E8F0',
+    borderRadius: '16px',
+    padding: '24px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+  },
+  weekBlockHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '14px',
+    marginBottom: '18px',
+  },
+  weekBadgeNode: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  weekBlockInfo: {
+    flex: 1,
+  },
+  weekBlockTitle: {
+    fontSize: '1.05rem',
+    fontWeight: 700,
+    color: '#0F172A',
+    margin: '0 0 4px',
+  },
+  weekBlockGoal: {
+    fontSize: '0.85rem',
+    color: '#64748B',
+    margin: 0,
+    lineHeight: 1.5,
+  },
+  modulesGrid: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  moduleCard: {
+    padding: '14px 18px',
+    borderRadius: '12px',
+    background: '#F8FAFC',
+    border: '1px solid #F1F5F9',
+  },
+  moduleCardTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '8px',
+  },
+  moduleTypeBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '3px 8px',
+    borderRadius: '6px',
+    fontSize: '0.72rem',
+    fontWeight: 600,
+  },
+  moduleTime: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: '#94A3B8',
+    fontSize: '0.78rem',
+  },
+  moduleCardTitle: {
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    color: '#0F172A',
+    margin: '0 0 4px',
+  },
+  moduleCardDesc: {
+    fontSize: '0.82rem',
+    color: '#64748B',
+    lineHeight: 1.5,
+    margin: 0,
   },
 }

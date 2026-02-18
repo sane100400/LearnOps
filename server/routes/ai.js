@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RESULTS_DIR = join(__dirname, '..', 'data', 'results');
+const CURRICULA_DIR = join(__dirname, '..', 'data', 'curricula');
 
 const router = Router();
 
@@ -121,28 +122,30 @@ router.post('/curriculum', async (req, res) => {
   }
 
   const systemPrompt = `당신은 IT 학습 커리큘럼 설계 전문가입니다.
-아래 레벨테스트 결과를 바탕으로 맞춤형 학습 로드맵을 생성하세요.
+아래 레벨테스트 결과를 바탕으로 주차별 모듈 단위의 세분화된 맞춤형 학습 로드맵을 생성하세요.
 
 ${mdContent}
 
 규칙:
 - 사용자의 레벨에 맞는 난이도로 설계하세요
-- 각 단계가 이전 단계를 기반으로 자연스럽게 이어지도록 구성하세요
-- 실습 프로젝트는 구체적이고 실행 가능해야 합니다
-- 4~6단계로 구성하세요
+- 각 주차가 이전 주차를 기반으로 자연스럽게 이어지도록 구성하세요
+- 6~10주차로 구성하세요
+- 각 주차에 이론과 실습 모듈을 3~5개씩 포함하세요
+- 모듈의 type은 "이론" 또는 "실습" 중 하나
 - 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
 
 {
-  "title": "맞춤 커리큘럼 제목",
+  "title": "커리큘럼 제목",
   "totalWeeks": 8,
-  "steps": [
+  "weeks": [
     {
-      "step": 1,
-      "title": "단계 제목",
-      "duration": "1~2주",
-      "goal": "이 단계의 학습 목표",
-      "topics": ["토픽1", "토픽2", "토픽3"],
-      "projects": "실습 프로젝트 설명"
+      "week": 1,
+      "title": "주차 제목",
+      "goal": "주차 학습 목표",
+      "modules": [
+        { "type": "이론", "title": "모듈명", "desc": "상세 설명", "time": "30분" },
+        { "type": "실습", "title": "모듈명", "desc": "상세 설명", "time": "60분" }
+      ]
     }
   ]
 }`;
@@ -161,7 +164,7 @@ ${mdContent}
           { role: 'user', content: '분석 결과를 바탕으로 맞춤 학습 커리큘럼을 생성해주세요.' },
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
 
@@ -184,6 +187,47 @@ ${mdContent}
   } catch (err) {
     console.error('[ai/curriculum]', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/save-curriculum — 커리큘럼 저장
+router.post('/save-curriculum', async (req, res) => {
+  const { userId, curriculum } = req.body;
+  if (!userId || !curriculum) {
+    return res.status(400).json({ error: 'userId and curriculum are required' });
+  }
+
+  const safeId = sanitizeUserId(userId);
+
+  try {
+    await mkdir(CURRICULA_DIR, { recursive: true });
+    await writeFile(
+      join(CURRICULA_DIR, `${safeId}.json`),
+      JSON.stringify(curriculum, null, 2),
+      'utf-8',
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[ai/save-curriculum]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/ai/saved-curriculum?userId=xxx — 저장된 커리큘럼 조회
+router.get('/saved-curriculum', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId query param is required' });
+  }
+
+  const safeId = sanitizeUserId(userId);
+  const filePath = join(CURRICULA_DIR, `${safeId}.json`);
+
+  try {
+    const raw = await readFile(filePath, 'utf-8');
+    res.json(JSON.parse(raw));
+  } catch {
+    return res.status(404).json({ error: '저장된 커리큘럼이 없습니다.' });
   }
 });
 
