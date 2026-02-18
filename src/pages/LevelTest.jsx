@@ -57,7 +57,7 @@ function getFieldPromptConfig(field) {
   const configs = {
     security: {
       expertRole: '사이버 보안 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (자격증, 직무, 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 보안 세부 분야 (웹 해킹, 포렌식, 악성코드 분석, 클라우드 보안, 네트워크 침투)', '이전 학습 경험 (CTF, 온라인 강의, 독학)', '현재 IT 역량 수준 (프로그래밍, 리눅스, 네트워크)', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (자격증, 직무, 프로젝트)', '학습 시간과 기간', '관심 보안 세부 분야 (웹 해킹, 포렌식, 악성코드 분석, 클라우드 보안, 네트워크 침투)', '이전 학습 경험 (CTF, 온라인 강의, 독학)', '현재 IT 역량 수준 (프로그래밍, 리눅스, 네트워크)', '커리어 방향'],
       knowledgeAreas: ['네트워크 보안', '웹 보안', '시스템 해킹', '암호학', '포렌식'],
       analysisExpert: '사이버 보안 학습 분석 전문가',
       chatRole: '사이버 보안 학습 상담사',
@@ -65,7 +65,7 @@ function getFieldPromptConfig(field) {
     },
     frontend: {
       expertRole: '프론트엔드 개발 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (취업, 포트폴리오, 사이드 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (React vs Vue vs Svelte, CSS 프레임워크, 번들러, 상태관리)', '이전 개발 경험 (HTML/CSS, JavaScript, 프로젝트 경험)', '현재 역량 수준 (프로그래밍 언어, 프레임워크 경험)', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (취업, 포트폴리오, 사이드 프로젝트)', '학습 시간과 기간', '관심 세부 분야 (React vs Vue vs Svelte, CSS 프레임워크, 번들러, 상태관리)', '이전 개발 경험 (HTML/CSS, JavaScript, 프로젝트 경험)', '현재 역량 수준 (프로그래밍 언어, 프레임워크 경험)', '커리어 방향'],
       knowledgeAreas: ['JavaScript', 'React', 'CSS/HTML', '웹 성능 최적화', '상태 관리'],
       analysisExpert: '프론트엔드 개발 학습 분석 전문가',
       chatRole: '프론트엔드 개발 학습 상담사',
@@ -73,7 +73,7 @@ function getFieldPromptConfig(field) {
     },
     backend: {
       expertRole: '백엔드 개발 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (취업, 서비스 구축, 역량 강화)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (API 설계, DB 최적화, MSA, 메시지 큐, 인증/보안)', '이전 개발 경험 (언어, 프레임워크, DB)', '현재 역량 수준', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (취업, 서비스 구축, 역량 강화)', '학습 시간과 기간', '관심 세부 분야 (API 설계, DB 최적화, MSA, 메시지 큐, 인증/보안)', '이전 개발 경험 (언어, 프레임워크, DB)', '현재 역량 수준', '커리어 방향'],
       knowledgeAreas: ['API 설계', '데이터베이스', '서버 아키텍처', '인증/보안', '성능 최적화'],
       analysisExpert: '백엔드 개발 학습 분석 전문가',
       chatRole: '백엔드 개발 학습 상담사',
@@ -81,7 +81,7 @@ function getFieldPromptConfig(field) {
     },
     infra: {
       expertRole: '인프라/클라우드 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (자격증, DevOps 전환, 인프라 운영)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (AWS vs GCP vs Azure, Docker/K8s, CI/CD, IaC, 모니터링)', '이전 운영 경험 (서버 관리, 네트워크, 클라우드)', '현재 역량 수준 (리눅스, 스크립팅, 네트워크)', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (자격증, DevOps 전환, 인프라 운영)', '학습 시간과 기간', '관심 세부 분야 (AWS vs GCP vs Azure, Docker/K8s, CI/CD, IaC, 모니터링)', '이전 운영 경험 (서버 관리, 네트워크, 클라우드)', '현재 역량 수준 (리눅스, 스크립팅, 네트워크)', '커리어 방향'],
       knowledgeAreas: ['클라우드 서비스', '컨테이너/K8s', 'CI/CD', '네트워크', 'IaC'],
       analysisExpert: '인프라/클라우드 학습 분석 전문가',
       chatRole: '인프라/클라우드 학습 상담사',
@@ -89,7 +89,7 @@ function getFieldPromptConfig(field) {
     },
     data: {
       expertRole: '데이터/AI 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (데이터 분석가, ML 엔지니어, 데이터 엔지니어)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (데이터 분석, ML/DL, 데이터 파이프라인, NLP, 컴퓨터 비전)', '이전 경험 (통계, Python, SQL, ML 프로젝트)', '현재 역량 수준 (수학/통계, 프로그래밍, 도구)', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (데이터 분석가, ML 엔지니어, 데이터 엔지니어)', '학습 시간과 기간', '관심 세부 분야 (데이터 분석, ML/DL, 데이터 파이프라인, NLP, 컴퓨터 비전)', '이전 경험 (통계, Python, SQL, ML 프로젝트)', '현재 역량 수준 (수학/통계, 프로그래밍, 도구)', '커리어 방향'],
       knowledgeAreas: ['Python/SQL', '통계/수학', '머신러닝', '데이터 파이프라인', '시각화/분석'],
       analysisExpert: '데이터/AI 학습 분석 전문가',
       chatRole: '데이터/AI 학습 상담사',
@@ -97,7 +97,7 @@ function getFieldPromptConfig(field) {
     },
     mobile: {
       expertRole: '모바일 개발 학습 성향 및 역량 분석 전문가',
-      directionTopics: ['구체적인 학습 목표 (앱 출시, 취업, 사이드 프로젝트)', '학습 시간과 기간', '선호하는 학습 방식 (이론 vs 실습)', '관심 세부 분야 (iOS/Swift vs Android/Kotlin vs 크로스플랫폼 React Native/Flutter)', '이전 개발 경험 (프로그래밍 언어, 앱 개발)', '현재 역량 수준', '커리어 방향'],
+      directionTopics: ['구체적인 학습 목표 (앱 출시, 취업, 사이드 프로젝트)', '학습 시간과 기간', '관심 세부 분야 (iOS/Swift vs Android/Kotlin vs 크로스플랫폼 React Native/Flutter)', '이전 개발 경험 (프로그래밍 언어, 앱 개발)', '현재 역량 수준', '커리어 방향'],
       knowledgeAreas: ['모바일 UI/UX', '네이티브 개발', '크로스플랫폼', '앱 아키텍처', '배포/운영'],
       analysisExpert: '모바일 개발 학습 분석 전문가',
       chatRole: '모바일 개발 학습 상담사',
@@ -124,11 +124,6 @@ function getInitialQuestions(field) {
         question: '현재 보안 관련 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (IT 기초부터 시작)', '기본 개념은 알지만 실습 경험은 부족해요', '실무나 프로젝트 경험이 있어요 (CTF, 보안 업무 등)'],
       },
-      {
-        type: 'single-with-text',
-        question: '보안 분야 중 가장 끌리는 방향이 있으신가요?',
-        options: ['웹/앱 해킹 (버그바운티, 모의해킹)', '시스템/네트워크 보안 (침투테스트, 포렌식)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
-      },
     ],
     frontend: [
       {
@@ -140,11 +135,6 @@ function getInitialQuestions(field) {
         type: 'single-with-text',
         question: '현재 프론트엔드 개발 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (HTML/CSS부터 시작)', 'HTML/CSS, JS 기초는 알지만 프레임워크는 처음이에요', 'React/Vue 등 프레임워크로 프로젝트 경험이 있어요'],
-      },
-      {
-        type: 'single-with-text',
-        question: '프론트엔드에서 가장 관심 있는 방향이 있으신가요?',
-        options: ['UI/UX 중심 개발 (디자인 시스템, 인터랙션)', '웹 애플리케이션 개발 (SPA, SSR)', '아직 잘 모르겠어서 전반적으로 탐색하고 싶어요'],
       },
     ],
     backend: [
@@ -158,11 +148,6 @@ function getInitialQuestions(field) {
         question: '현재 백엔드 개발 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (프로그래밍 기초부터 시작)', '언어/DB 기초는 알지만 서버 구축 경험은 부족해요', 'API 개발이나 서버 운영 경험이 있어요'],
       },
-      {
-        type: 'single-with-text',
-        question: '백엔드에서 가장 관심 있는 방향이 있으신가요?',
-        options: ['API 설계 및 서버 개발', 'DB 설계 및 데이터 모델링', '대규모 시스템 아키텍처 (MSA, 분산 시스템)'],
-      },
     ],
     infra: [
       {
@@ -174,11 +159,6 @@ function getInitialQuestions(field) {
         type: 'single-with-text',
         question: '현재 인프라/클라우드 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (리눅스 기초부터 시작)', '리눅스/네트워크 기초는 알지만 클라우드는 처음이에요', '클라우드 서비스나 DevOps 실무 경험이 있어요'],
-      },
-      {
-        type: 'single-with-text',
-        question: '인프라/클라우드에서 가장 관심 있는 방향이 있으신가요?',
-        options: ['클라우드 아키텍처 (AWS, GCP, Azure)', '컨테이너 오케스트레이션 (Docker, Kubernetes)', 'CI/CD 및 DevOps 파이프라인'],
       },
     ],
     data: [
@@ -192,11 +172,6 @@ function getInitialQuestions(field) {
         question: '현재 데이터/AI 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (Python 기초부터 시작)', 'Python/SQL 기초는 알지만 분석 경험은 부족해요', 'ML 모델링이나 데이터 분석 프로젝트 경험이 있어요'],
       },
-      {
-        type: 'single-with-text',
-        question: '데이터/AI에서 가장 관심 있는 방향이 있으신가요?',
-        options: ['데이터 분석 및 시각화', '머신러닝/딥러닝 엔지니어링', '데이터 파이프라인/엔지니어링'],
-      },
     ],
     mobile: [
       {
@@ -208,11 +183,6 @@ function getInitialQuestions(field) {
         type: 'single-with-text',
         question: '현재 모바일 개발 경험 수준은 어느 정도인가요?',
         options: ['완전 처음이에요 (프로그래밍 기초부터 시작)', '프로그래밍 기초는 알지만 앱 개발은 처음이에요', '앱을 직접 만들어보거나 출시 경험이 있어요'],
-      },
-      {
-        type: 'single-with-text',
-        question: '모바일 개발에서 가장 관심 있는 방향이 있으신가요?',
-        options: ['iOS 네이티브 개발 (Swift/SwiftUI)', 'Android 네이티브 개발 (Kotlin/Jetpack Compose)', '크로스플랫폼 (React Native, Flutter)'],
       },
     ],
   }
@@ -253,14 +223,27 @@ async function generateNextQuestion(history, field) {
 
   const directionTopicsList = config.directionTopics.map(t => `- ${t}`).join('\n')
 
+  // 이미 질문된 토픽을 추적하여 중복 방지
+  const askedTopics = history.map(h => h.question).join(' | ')
+
   const directionGuidance = isDirectionPhase
     ? `현재는 **방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})입니다.
-아직 파악하지 못한 정보를 우선적으로 질문하세요:
+
+참고할 수 있는 대주제 (이 중에서만 고를 필요 없이 자유롭게 파생 질문 가능):
 ${directionTopicsList}
 
-** 절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
-이전 답변에서 이미 파악된 정보는 건너뛰고, 아직 모르는 부분을 물어보세요.
-**이전에 이미 질문한 내용과 같거나 유사한 질문은 절대 하지 마세요.**`
+질문 설계 원칙:
+- 처음 배우는 학생을 가르치듯 차근차근, 친근하게 질문하세요
+- 사용자의 직전 답변에서 키워드를 잡아 **거기서 한 단계 더 깊이** 파고드세요
+- 예: "취업 준비"라고 답했으면 → "어떤 회사/직무를 목표로 하시나요?" 처럼 구체화
+- 예: "CTF 경험 있어요"라고 답했으면 → "어떤 분야 문제를 주로 풀었나요?" 처럼 확장
+- 같은 대주제라도 **다른 각도**에서 물어보세요 (예: 목표 → 시기/기한, 경험 → 어려웠던 점)
+- 단답형이 나올 법한 뻔한 질문 대신, 사용자의 생각을 끌어낼 수 있는 질문을 하세요
+- **절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
+- **이전에 이미 질문한 내용과 같거나 유사한 질문은 절대 하지 마세요.**
+
+이미 질문된 내용 (중복 금지):
+${askedTopics}`
     : `현재는 **지식 측정 단계** (문항 ${currentNum}/${MAX_QUESTIONS})입니다.
 사용자가 관심 있다고 한 분야에서 실제 지식 수준을 측정하는 4지선다 퀴즈를 출제하세요.
 측정 가능한 지식 영역: ${config.knowledgeAreas.join(', ')}
@@ -270,16 +253,18 @@ ${directionTopicsList}
 - **매 문제마다 반드시 다른 주제/토픽에서 출제하세요. 이전 문답 기록에 이미 나온 주제(예: XSS, SQL Injection 등)와 동일하거나 유사한 주제로 다시 출제하지 마세요.**
 - 지식 영역 목록에서 아직 다루지 않은 영역을 우선 선택하세요`
 
-  const systemPrompt = `당신은 ${config.expertRole}입니다.
-사용자의 이전 답변을 기반으로 다음 질문을 생성하세요.
+  const systemPrompt = `당신은 ${config.expertRole}이자, 학생을 처음부터 차근차근 이끌어주는 따뜻한 멘토입니다.
+사용자의 이전 답변을 꼼꼼히 읽고, 자연스럽게 이어지는 다음 질문을 생성하세요.
 
-목표: 아키네이터처럼 점진적으로 사용자의 학습 방향, 동기, 경험, 목표를 깊이 파악한 뒤, 마지막에 지식 수준을 측정합니다.
+목표: 사용자의 학습 동기, 현재 상황, 목표, 경험을 하나씩 차근차근 파악합니다. 마지막에 지식 수준을 측정합니다.
 
 ${directionGuidance}
 
-공통 규칙:
-- **이전 문답 기록에 이미 나온 질문, 주제, 토픽과 중복되는 질문은 절대 하지 마세요**
-- 이전 답변을 반영하여 자연스럽게 이어지는 질문을 하세요
+질문 다양성 규칙:
+- **이전 문답 기록에 이미 나온 질문, 주제, 키워드와 중복되는 질문은 절대 하지 마세요**
+- 직전 답변의 구체적인 단어/표현을 활용하여 후속 질문을 만드세요
+- 매번 질문의 톤과 형식을 바꾸세요 (예: "어떤 ~", "혹시 ~", "~ 해본 적 있나요?", "~ 중에서 골라주세요")
+- 선택지도 매번 새로운 관점에서 구성하세요
 - 한 번에 1개 질문만 생성하세요
 - 주관식(text)만으로 이루어진 질문은 절대 생성하지 마세요
 - 모든 질문에는 반드시 객관식 선택지 3개를 포함해야 합니다
