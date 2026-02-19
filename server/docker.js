@@ -10,7 +10,12 @@ const CONTAINER_LIMITS = {
   PidsLimit: 100,
 };
 
-// Track active sessions: sessionId -> { network, containers: { attacker, vulnApp, db } }
+// Track active sessions:
+// sessionId -> {
+//   status: 'starting' | 'running' | 'stopping' | 'failed',
+//   error, startedAt, readyAt, failedAt,
+//   startPromise, network, networkName, containers
+// }
 const sessions = new Map();
 
 function sleep(ms) {
@@ -53,6 +58,20 @@ async function removeNetworkSafe(network) {
   } catch {
     // ignore cleanup failures
   }
+}
+
+function buildSessionState(sessionId) {
+  return {
+    status: 'starting',
+    error: null,
+    startedAt: new Date().toISOString(),
+    readyAt: null,
+    failedAt: null,
+    startPromise: null,
+    network: null,
+    networkName: `${NETWORK_PREFIX}-${sessionId}`,
+    containers: {},
+  };
 }
 
 /**
@@ -112,16 +131,12 @@ async function preflight() {
 }
 
 /**
- * Start a lab environment for a session
+ * Provision a lab environment for a session (blocking worker)
  */
-export async function startLab(sessionId) {
-  if (sessions.has(sessionId)) {
-    return { status: 'already_running' };
-  }
-
+async function provisionLab(sessionId, session) {
   await preflight();
 
-  const networkName = `${NETWORK_PREFIX}-${sessionId}`;
+  const networkName = session.networkName;
   const labels = { 'managed-by': LABEL_PREFIX, session: sessionId };
   let network;
   let db;
@@ -238,14 +253,12 @@ export async function startLab(sessionId) {
 
     await Promise.all([vulnApp.start(), attacker.start()]);
 
-    sessions.set(sessionId, {
-      network,
-      containers: { attacker, vulnApp, db },
-      networkName,
-      dbReady: true,
-    });
-
-    return { status: 'started' };
+    session.network = network;
+    session.containers = { attacker, vulnApp, db };
+    session.status = 'running';
+    session.error = null;
+    session.readyAt = new Date().toISOString();
+    session.failedAt = null;
   } catch (err) {
     await Promise.allSettled([
       removeContainerSafe(attacker),
@@ -253,8 +266,52 @@ export async function startLab(sessionId) {
       removeContainerSafe(db),
     ]);
     await removeNetworkSafe(network);
+
+    session.status = 'failed';
+    session.error = err.message;
+    session.failedAt = new Date().toISOString();
     throw err;
   }
+}
+
+/**
+ * Start a lab environment asynchronously.
+ * Returns immediately so HTTP handlers can respond without waiting for Docker startup.
+ */
+export function startLab(sessionId) {
+  const existing = sessions.get(sessionId);
+
+  if (existing) {
+    if (existing.status === 'running') return { status: 'running' };
+    if (existing.status === 'starting') return { status: 'starting' };
+    if (existing.status === 'stopping') return { status: 'stopping' };
+    if (existing.status === 'failed') {
+      sessions.delete(sessionId);
+    }
+  }
+
+  const session = buildSessionState(sessionId);
+  sessions.set(sessionId, session);
+
+  session.startPromise = provisionLab(sessionId, session)
+    .catch((err) => {
+      console.error(`[docker] start failed: session=${sessionId}`, err.message);
+    })
+    .finally(() => {
+      session.startPromise = null;
+    });
+
+  return { status: 'starting' };
+}
+
+function getSessionMeta(session) {
+  return {
+    status: session.status,
+    error: session.error,
+    startedAt: session.startedAt,
+    readyAt: session.readyAt,
+    failedAt: session.failedAt,
+  };
 }
 
 /**
@@ -264,15 +321,19 @@ export async function stopLab(sessionId) {
   const session = sessions.get(sessionId);
   if (!session) return { status: 'not_running' };
 
-  const { network, containers } = session;
+  session.status = 'stopping';
+  session.error = null;
+  const { network, containers = {} } = session;
 
   // Stop and remove containers in reverse order
   for (const name of ['attacker', 'vulnApp', 'db']) {
+    const container = containers[name];
+    if (!container) continue;
     try {
-      await containers[name].stop({ t: 2 });
+      await container.stop({ t: 2 });
     } catch { /* already stopped */ }
     try {
-      await containers[name].remove({ force: true });
+      await container.remove({ force: true });
     } catch { /* already removed */ }
   }
 
@@ -290,8 +351,8 @@ export async function stopLab(sessionId) {
  */
 export function getLabStatus(sessionId) {
   const session = sessions.get(sessionId);
-  if (!session) return { status: 'stopped' };
-  return { status: 'running' };
+  if (!session) return { status: 'stopped', error: null };
+  return getSessionMeta(session);
 }
 
 /**
@@ -299,7 +360,7 @@ export function getLabStatus(sessionId) {
  */
 export async function getAppTarget(sessionId) {
   const session = sessions.get(sessionId);
-  if (!session) return null;
+  if (!session || session.status !== 'running' || !session.containers?.vulnApp) return null;
 
   try {
     const info = await session.containers.vulnApp.inspect();
@@ -315,7 +376,7 @@ export async function getAppTarget(sessionId) {
  */
 export async function attachWebSocket(sessionId, ws) {
   const session = sessions.get(sessionId);
-  if (!session) {
+  if (!session || session.status !== 'running' || !session.containers?.attacker) {
     ws.send('\r\n[Error] Lab environment is not running. Click "환경 시작" first.\r\n');
     ws.close();
     return;

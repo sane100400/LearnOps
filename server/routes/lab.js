@@ -8,8 +8,17 @@ const router = Router();
 router.post('/start', async (req, res) => {
   const sessionId = req.query.session || 'default';
   try {
-    const result = await startLab(sessionId);
-    res.json(result);
+    const result = startLab(sessionId);
+    const payload = {
+      ...result,
+      session: sessionId,
+      statusUrl: `/api/lab/status?session=${sessionId}`,
+    };
+
+    if (result.status === 'starting' || result.status === 'stopping') {
+      return res.status(202).json(payload);
+    }
+    res.json(payload);
   } catch (err) {
     console.error('[lab/start]', err.message);
     res.status(500).json({ error: err.message });

@@ -16,6 +16,40 @@ export default function useContainerStatus(sessionId) {
     }
   }, []);
 
+  const checkStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/lab/status?session=${sessionId}`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data.status === 'running') {
+        setStatus('running');
+        setError(null);
+        clearPolling();
+      } else if (data.status === 'starting') {
+        setStatus((prev) => (prev === 'stopping' ? prev : 'starting'));
+      } else if (data.status === 'stopping') {
+        setStatus('stopping');
+      } else if (data.status === 'failed') {
+        setError(data.error || '실습 환경 시작에 실패했습니다.');
+        setStatus('error');
+        clearPolling();
+      } else if (data.status === 'stopped') {
+        setStatus((prev) => (prev === 'stopping' ? 'stopped' : prev === 'running' ? 'stopped' : prev));
+        clearPolling();
+      }
+    } catch {
+      // ignore polling errors
+    }
+  }, [sessionId, clearPolling]);
+
+  const startPolling = useCallback(() => {
+    clearPolling();
+    pollingRef.current = setInterval(() => {
+      checkStatus();
+    }, 1500);
+  }, [checkStatus, clearPolling]);
+
   const start = useCallback(async () => {
     setStatus('starting');
     setError(null);
@@ -27,12 +61,24 @@ export default function useContainerStatus(sessionId) {
         throw new Error(`서버 응답 오류 (${res.status}). 백엔드 서버가 실행 중인지 확인하세요: npm run dev:server`);
       }
       if (!res.ok) throw new Error(data.error || 'Failed to start');
-      setStatus('running');
+
+      if (data.status === 'running') {
+        setStatus('running');
+        clearPolling();
+        return;
+      }
+      if (data.status === 'failed') {
+        throw new Error(data.error || 'Failed to start');
+      }
+
+      setStatus('starting');
+      await checkStatus();
+      startPolling();
     } catch (err) {
       setError(err.message);
       setStatus('error');
     }
-  }, [sessionId]);
+  }, [sessionId, checkStatus, startPolling, clearPolling]);
 
   const stop = useCallback(async () => {
     setStatus('stopping');
@@ -59,18 +105,6 @@ export default function useContainerStatus(sessionId) {
     await new Promise((r) => setTimeout(r, 1000));
     await start();
   }, [start, stop]);
-
-  const checkStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/lab/status?session=${sessionId}`);
-      const data = await res.json();
-      if (data.status === 'running' && status !== 'running' && status !== 'stopping') {
-        setStatus('running');
-      } else if (data.status === 'stopped' && status === 'running') {
-        setStatus('stopped');
-      }
-    } catch { /* ignore polling errors */ }
-  }, [sessionId, status]);
 
   // Cleanup on unmount
   useEffect(() => {
