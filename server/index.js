@@ -24,8 +24,15 @@ app.use((req, res, next) => {
   helmetMiddleware(req, res, next);
 });
 app.use(cors({ origin: CORS_ORIGIN }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body parser — 프록시 라우트는 raw body를 직접 전달해야 하므로 파싱 건너뜀
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/lab/proxy')) return next();
+  express.json()(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true })(req, res, next);
+  });
+});
 
 // Rate limiter for lab API (start/stop 등 관리 API용)
 const labLimiter = rateLimit({

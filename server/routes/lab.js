@@ -54,16 +54,17 @@ async function proxyHandler(req, res) {
     Object.fromEntries(Object.entries(req.query).filter(([k]) => k !== 'session'))
   ).toString();
 
-  // Build body from parsed Express body (json/urlencoded already parsed)
-  let bodyBuf = null;
+  // Raw body 읽기 (body parser를 건너뛰므로 직접 스트림에서 읽음)
   const contentType = req.headers['content-type'] || '';
+  let bodyBuf = null;
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    if (contentType.includes('application/x-www-form-urlencoded') && req.body) {
-      bodyBuf = Buffer.from(new URLSearchParams(req.body).toString());
-    } else if (contentType.includes('application/json') && req.body) {
-      bodyBuf = Buffer.from(JSON.stringify(req.body));
-    }
+    bodyBuf = await new Promise((resolve) => {
+      const chunks = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => resolve(chunks.length > 0 ? Buffer.concat(chunks) : null));
+      req.on('error', () => resolve(null));
+    });
   }
 
   const options = {
@@ -79,10 +80,12 @@ async function proxyHandler(req, res) {
     },
   };
 
-  if (bodyBuf) {
+  if (bodyBuf && bodyBuf.length > 0) {
     options.headers['content-type'] = contentType;
     options.headers['content-length'] = bodyBuf.length;
   }
+
+  console.log(`[proxy] ${req.method} ${subPath} → ${target} (body: ${bodyBuf ? bodyBuf.length : 0} bytes)`);
 
   const proxyPrefix = `/api/lab/proxy`;
 
