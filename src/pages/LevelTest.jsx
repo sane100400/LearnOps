@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
+  ChevronLeft,
   ChevronRight,
   RotateCcw,
   CheckCircle2,
@@ -230,17 +231,30 @@ async function generateNextQuestion(history, field) {
   // 이미 질문된 토픽을 추적하여 중복 방지
   const askedTopics = history.map(h => h.question).join(' | ')
 
+  // 이전 답변에서 사용자가 언급한 세부 관심 분야 추출
+  const userAnswersText = history.map(h => h.answer).join(' ')
+  const userFocusHint = history.length >= 2
+    ? `\n\n**[핵심] 이전 답변 분석 결과, 사용자가 언급한 키워드/관심 분야를 파악하세요.**
+사용자의 전체 답변 내용: "${userAnswersText}"
+→ 여기서 사용자가 구체적으로 언급한 세부 분야(예: 시스템 해킹, 포렌식, 웹 해킹, 악성코드 분석, 리버싱, 네트워크 침투 등)가 있다면, **그 분야를 중심으로** 질문하세요.
+→ 사용자가 이미 관심 분야를 밝혔는데 또 "어떤 분야에 관심 있나요?" 같은 광범위한 질문을 하지 마세요.
+→ 대신 해당 분야 안에서 더 구체적인 것을 물어보세요 (예: 사용하는 도구, 학습한 기법, 목표하는 수준, 관련 경험 등).`
+    : ''
+
   const directionGuidance = isDirectionPhase
     ? `현재는 **방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})입니다.
 
 참고할 수 있는 대주제 (이 중에서만 고를 필요 없이 자유롭게 파생 질문 가능):
 ${directionTopicsList}
+${userFocusHint}
 
 질문 설계 원칙:
 - 처음 배우는 학생을 가르치듯 차근차근, 친근하게 질문하세요
 - 사용자의 직전 답변에서 키워드를 잡아 **거기서 한 단계 더 깊이** 파고드세요
 - 예: "취업 준비"라고 답했으면 → "어떤 회사/직무를 목표로 하시나요?" 처럼 구체화
 - 예: "CTF 경험 있어요"라고 답했으면 → "어떤 분야 문제를 주로 풀었나요?" 처럼 확장
+- **사용자가 특정 세부 분야(예: 시스템 해킹, 포렌식 등)에 관심 있다고 밝혔다면, 이후 질문은 전체 분야를 넓게 묻지 말고 해당 세부 분야 안에서 깊이 들어가세요**
+- 예: "시스템 해킹에 관심"이라고 답했으면 → "어떤 OS 환경(Linux/Windows)에서 학습하고 싶으신가요?", "버퍼 오버플로우나 권한 상승 중 어떤 기법에 더 흥미가 있나요?" 처럼 해당 분야를 파고드세요
 - 같은 대주제라도 **다른 각도**에서 물어보세요 (예: 목표 → 시기/기한, 경험 → 어려웠던 점)
 - 단답형이 나올 법한 뻔한 질문 대신, 사용자의 생각을 끌어낼 수 있는 질문을 하세요
 - **절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
@@ -249,16 +263,31 @@ ${directionTopicsList}
 이미 질문된 내용 (중복 금지):
 ${askedTopics}`
     : `현재는 **지식 측정 단계** (문항 ${currentNum}/${MAX_QUESTIONS})입니다.
-사용자가 관심 있다고 한 분야에서 실제 지식 수준을 측정하는 4지선다 퀴즈를 출제하세요.
-측정 가능한 지식 영역: ${config.knowledgeAreas.join(', ')}
+
+**[핵심 규칙] 이전 문답 기록을 분석하여 사용자가 관심 있다고 밝힌 세부 분야를 파악하세요.**
+사용자의 전체 답변 내용: "${userAnswersText}"
+→ 사용자가 특정 세부 분야(예: 시스템 해킹, 포렌식, 웹 해킹 등)에 관심이 있다고 밝혔다면, **4문제 중 최소 3문제는 반드시 해당 세부 분야에서 출제하세요.**
+→ 예: 사용자가 "시스템 해킹"에 관심 있다고 했으면 → 버퍼 오버플로우, 권한 상승, 메모리 보호 기법, 셸코드, 리버스 엔지니어링, 리눅스 커널 취약점 등에서 출제
+→ 예: 사용자가 "포렌식"에 관심 있다고 했으면 → 디스크 포렌식, 메모리 포렌식, 네트워크 포렌식, 로그 분석 등에서 출제
+→ **절대 사용자가 관심 없다고 했거나 언급하지 않은 분야(예: 웹 보안)의 문제를 주력으로 내지 마세요.**
+→ 나머지 1문제만 다른 영역에서 출제하여 기본 소양을 확인하세요.
+
+전체 지식 영역 참고: ${config.knowledgeAreas.join(', ')}
 - 반드시 quiz 타입을 사용하세요
 - 너무 쉽거나 너무 어려운 문제는 피하세요
 - 이전에 틀린 문제가 있다면 난이도를 조절하세요
 - **매 문제마다 반드시 다른 주제/토픽에서 출제하세요. 이전 문답 기록에 이미 나온 주제(예: XSS, SQL Injection 등)와 동일하거나 유사한 주제로 다시 출제하지 마세요.**
-- 지식 영역 목록에서 아직 다루지 않은 영역을 우선 선택하세요`
+- 사용자의 관심 분야 내에서도 매번 다른 세부 토픽을 선택하세요`
+
+  const fieldLabel = IT_FIELDS.find(f => f.id === field)?.label || field
 
   const systemPrompt = `당신은 ${config.expertRole}이자, 학생을 처음부터 차근차근 이끌어주는 따뜻한 멘토입니다.
 사용자의 이전 답변을 꼼꼼히 읽고, 자연스럽게 이어지는 다음 질문을 생성하세요.
+
+**[절대 규칙] 사용자가 선택한 분야: "${fieldLabel}"**
+- 이 테스트는 오직 "${fieldLabel}" 분야에 대한 레벨테스트입니다.
+- 다른 IT 분야(예: ${fieldLabel === '백엔드 개발' ? '프론트엔드, 모바일, 인프라' : fieldLabel === '프론트엔드 개발' ? '백엔드, 모바일, 인프라' : fieldLabel === '사이버 보안' ? '프론트엔드, 백엔드, 모바일' : '프론트엔드, 백엔드, 모바일'} 등)로 전환하거나, 다른 분야를 할 의향이 있는지 묻는 질문은 절대 하지 마세요.
+- 선택지에 다른 IT 분야를 포함하지 마세요. 모든 질문과 선택지는 "${fieldLabel}" 범위 안에서만 구성하세요.
 
 목표: 사용자의 학습 동기, 현재 상황, 목표, 경험을 하나씩 차근차근 파악합니다. 마지막에 지식 수준을 측정합니다.
 
@@ -841,6 +870,7 @@ export default function LevelTest() {
   const [qIdx, setQIdx] = useState(0)            // current question index
   const [currentQ, setCurrentQ] = useState(null)  // current question object
   const [history, setHistory] = useState([])      // all Q&A pairs
+  const [questionLog, setQuestionLog] = useState([]) // 이전 질문+답변 상태 저장 (되돌아가기용)
   const [isLoading, setIsLoading] = useState(false)
   const [analysis, setAnalysis] = useState(null)
   const [curriculum, setCurriculum] = useState(null)
@@ -868,6 +898,7 @@ export default function LevelTest() {
     setStep('quiz')
     setQIdx(0)
     setHistory([])
+    setQuestionLog([])
     setCurrentQ(questions[0])
   }
 
@@ -935,8 +966,29 @@ export default function LevelTest() {
     })
   }
 
+  /* ----- Go back to previous question ----- */
+  const goBack = () => {
+    if (questionLog.length === 0) return
+
+    const prev = questionLog[questionLog.length - 1]
+    setQuestionLog(questionLog.slice(0, -1))
+    setHistory(history.slice(0, -1))
+    setQIdx(qIdx - 1)
+    setCurrentQ(prev.question)
+    setSelectedOption(prev.answerState.selectedOption)
+    setMultiSelection(prev.answerState.multiSelection)
+    setTextInput(prev.answerState.textInput)
+    setShowTextInput(prev.answerState.showTextInput)
+  }
+
   /* ----- Advance to next question ----- */
   const advanceToNext = async (entry) => {
+    // 현재 질문과 답변 상태를 로그에 저장 (되돌아가기용)
+    setQuestionLog([...questionLog, {
+      question: currentQ,
+      answerState: { selectedOption, multiSelection, textInput, showTextInput },
+    }])
+
     const newHistory = [...history, entry]
     setHistory(newHistory)
 
@@ -1255,28 +1307,35 @@ export default function LevelTest() {
 
                   {/* ---- Quiz (4지선다, 자동 이동) ---- */}
                   {currentQ.type === 'quiz' && (
-                    <div style={s.optionsList}>
-                      {currentQ.options.map((opt, i) => (
-                        <button
-                          key={i}
-                          onClick={() => handleQuizAnswer(i)}
-                          disabled={selectedOption !== null}
-                          style={{
-                            ...s.optionBtn,
-                            ...(selectedOption === i
-                              ? (i === currentQ.answer ? s.optionCorrect : s.optionWrong)
-                              : (selectedOption !== null && i === currentQ.answer ? s.optionCorrect : {})),
-                          }}
-                        >
-                          <span style={{
-                            ...s.optionLabel,
-                            ...(selectedOption === i ? { background: i === currentQ.answer ? '#10B981' : '#EF4444', color: '#fff' } : {}),
-                            ...(selectedOption !== null && i === currentQ.answer && selectedOption !== i ? { background: '#10B981', color: '#fff' } : {}),
-                          }}>{String.fromCharCode(65 + i)}</span>
-                          <span style={{ flex: 1 }}>{opt}</span>
+                    <>
+                      {qIdx > 0 && selectedOption === null && (
+                        <button onClick={goBack} style={s.goBackBtn}>
+                          <ChevronLeft size={16} /> 이전 질문
                         </button>
-                      ))}
-                    </div>
+                      )}
+                      <div style={s.optionsList}>
+                        {currentQ.options.map((opt, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleQuizAnswer(i)}
+                            disabled={selectedOption !== null}
+                            style={{
+                              ...s.optionBtn,
+                              ...(selectedOption === i
+                                ? (i === currentQ.answer ? s.optionCorrect : s.optionWrong)
+                                : (selectedOption !== null && i === currentQ.answer ? s.optionCorrect : {})),
+                            }}
+                          >
+                            <span style={{
+                              ...s.optionLabel,
+                              ...(selectedOption === i ? { background: i === currentQ.answer ? '#10B981' : '#EF4444', color: '#fff' } : {}),
+                              ...(selectedOption !== null && i === currentQ.answer && selectedOption !== i ? { background: '#10B981', color: '#fff' } : {}),
+                            }}>{String.fromCharCode(65 + i)}</span>
+                            <span style={{ flex: 1 }}>{opt}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
 
                   {/* ---- Single select + optional text ---- */}
@@ -1308,7 +1367,7 @@ export default function LevelTest() {
                         setTextInput={setTextInput}
                         textRef={textRef}
                       />
-                      <SubmitFooter canSubmit={canSubmit()} onSubmit={submitAnswer} />
+                      <SubmitFooter canSubmit={canSubmit()} onSubmit={submitAnswer} canGoBack={qIdx > 0} onGoBack={goBack} />
                     </>
                   )}
 
@@ -1346,6 +1405,8 @@ export default function LevelTest() {
                         canSubmit={canSubmit()}
                         onSubmit={submitAnswer}
                         countLabel={multiSelection.length > 0 ? `${multiSelection.length}개 선택됨` : null}
+                        canGoBack={qIdx > 0}
+                        onGoBack={goBack}
                       />
                     </>
                   )}
@@ -1767,9 +1828,14 @@ function TextInputToggle({ showTextInput, setShowTextInput, textInput, setTextIn
   )
 }
 
-function SubmitFooter({ canSubmit, onSubmit, countLabel }) {
+function SubmitFooter({ canSubmit, onSubmit, countLabel, canGoBack, onGoBack }) {
   return (
     <div style={s.submitFooter}>
+      {canGoBack && (
+        <button onClick={onGoBack} style={s.goBackBtn}>
+          <ChevronLeft size={16} /> 이전
+        </button>
+      )}
       {countLabel && <span style={s.multiCount}>{countLabel}</span>}
       <Button
         size="large"
@@ -2361,6 +2427,21 @@ const s = {
     alignItems: 'center',
     marginTop: '20px',
     gap: '12px',
+  },
+  goBackBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '8px 14px',
+    borderRadius: '8px',
+    border: '1px solid #E2E8F0',
+    background: '#fff',
+    color: '#64748B',
+    fontSize: '0.84rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.15s ease',
   },
   multiCount: {
     fontSize: '0.82rem',
