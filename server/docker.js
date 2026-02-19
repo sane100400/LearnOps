@@ -89,34 +89,72 @@ export async function startLab(sessionId) {
     Internal: false,
   });
 
-  // 2. 컨테이너 3개 동시 생성
-  const [db, vulnApp, attacker] = await Promise.all([
-    docker.createContainer({
-      Image: 'learnops-vuln-db',
-      name: `${LABEL_PREFIX}-db-${sessionId}`,
-      Labels: labels,
-      Env: [
-        'MYSQL_ROOT_PASSWORD=rootpass',
-        'MYSQL_DATABASE=vuln_db',
-        'MYSQL_USER=vuln_user',
-        'MYSQL_PASSWORD=vuln_pass',
-      ],
-      HostConfig: {
-        ...CONTAINER_LIMITS,
-        NetworkMode: networkName,
-        CapDrop: ['ALL'],
-        CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
-      },
-      NetworkingConfig: {
-        EndpointsConfig: { [networkName]: { Aliases: ['vuln-db'] } },
-      },
-    }),
+  // 2. DB 컨테이너 먼저 생성 & 시작
+  const db = await docker.createContainer({
+    Image: 'learnops-vuln-db',
+    name: `${LABEL_PREFIX}-db-${sessionId}`,
+    Labels: labels,
+    Env: [
+      'MYSQL_ROOT_PASSWORD=rootpass',
+      'MYSQL_DATABASE=vuln_db',
+      'MYSQL_USER=vuln_user',
+      'MYSQL_PASSWORD=vuln_pass',
+    ],
+    HostConfig: {
+      ...CONTAINER_LIMITS,
+      NetworkMode: networkName,
+      CapDrop: ['ALL'],
+      CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
+    },
+    NetworkingConfig: {
+      EndpointsConfig: { [networkName]: { Aliases: ['vuln-db'] } },
+    },
+  });
+
+  await db.start();
+
+  // 3. DB MySQL 준비 대기
+  const maxWait = 30000;
+  const t0 = Date.now();
+  let dbReady = false;
+  while (Date.now() - t0 < maxWait) {
+    try {
+      const exec = await db.exec({
+        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
+        AttachStdout: true, AttachStderr: true,
+      });
+      const stream = await exec.start({ Detach: false, Tty: false });
+      const output = await new Promise((resolve) => {
+        let buf = '';
+        stream.on('data', (chunk) => { buf += chunk.toString(); });
+        stream.on('end', () => resolve(buf));
+        stream.on('error', () => resolve(''));
+      });
+      if (output.includes('alive')) {
+        dbReady = true;
+        console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
+        break;
+      }
+    } catch { /* not ready */ }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // 4. DB IP 주소 확보 (DNS alias 대신 직접 IP 사용)
+  const dbInfo = await db.inspect();
+  const dbIp = dbInfo.NetworkSettings.Networks?.[networkName]?.IPAddress;
+  if (!dbIp) {
+    throw new Error('DB 컨테이너 IP를 가져올 수 없습니다.');
+  }
+  console.log(`[docker] DB IP: ${dbIp}`);
+
+  // 5. vuln-app, attacker 생성 & 시작 (DB_HOST에 실제 IP 전달)
+  const [vulnApp, attacker] = await Promise.all([
     docker.createContainer({
       Image: 'learnops-vuln-app',
       name: `${LABEL_PREFIX}-app-${sessionId}`,
       Labels: labels,
       Env: [
-        'DB_HOST=vuln-db',
+        `DB_HOST=${dbIp}`,
         'DB_USER=vuln_user',
         'DB_PASS=vuln_pass',
         'DB_NAME=vuln_db',
@@ -151,35 +189,6 @@ export async function startLab(sessionId) {
     }),
   ]);
 
-  // 3. DB를 먼저 시작하고 준비될 때까지 대기 (vuln-db DNS 별칭 등록 보장)
-  await db.start();
-
-  const maxWait = 30000;
-  const t0 = Date.now();
-  let dbReady = false;
-  while (Date.now() - t0 < maxWait) {
-    try {
-      const exec = await db.exec({
-        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
-        AttachStdout: true, AttachStderr: true,
-      });
-      const stream = await exec.start({ Detach: false, Tty: false });
-      const output = await new Promise((resolve) => {
-        let buf = '';
-        stream.on('data', (chunk) => { buf += chunk.toString(); });
-        stream.on('end', () => resolve(buf));
-        stream.on('error', () => resolve(''));
-        });
-      if (output.includes('alive')) {
-        dbReady = true;
-        console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
-        break;
-      }
-    } catch { /* not ready */ }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  // 4. DB 준비 후 vuln-app, attacker 시작
   await Promise.all([vulnApp.start(), attacker.start()]);
 
   sessions.set(sessionId, {
