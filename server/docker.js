@@ -13,6 +13,48 @@ const CONTAINER_LIMITS = {
 // Track active sessions: sessionId -> { network, containers: { attacker, vulnApp, db } }
 const sessions = new Map();
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runExec(container, cmd) {
+  const exec = await container.exec({
+    Cmd: cmd,
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+  });
+
+  const stream = await exec.start({ Detach: false, Tty: false });
+  const output = await new Promise((resolve) => {
+    let buf = '';
+    stream.on('data', (chunk) => { buf += chunk.toString(); });
+    stream.on('end', () => resolve(buf));
+    stream.on('error', () => resolve(buf));
+  });
+
+  const info = await exec.inspect().catch(() => ({ ExitCode: 1 }));
+  return { output, exitCode: info.ExitCode ?? 1 };
+}
+
+async function removeContainerSafe(container) {
+  if (!container) return;
+  try {
+    await container.remove({ force: true });
+  } catch {
+    // ignore cleanup failures
+  }
+}
+
+async function removeNetworkSafe(network) {
+  if (!network) return;
+  try {
+    await network.remove();
+  } catch {
+    // ignore cleanup failures
+  }
+}
+
 /**
  * Clean up orphan containers and networks from previous runs
  */
@@ -81,124 +123,138 @@ export async function startLab(sessionId) {
 
   const networkName = `${NETWORK_PREFIX}-${sessionId}`;
   const labels = { 'managed-by': LABEL_PREFIX, session: sessionId };
+  let network;
+  let db;
+  let vulnApp;
+  let attacker;
 
-  // 1. Create isolated network
-  const network = await docker.createNetwork({
-    Name: networkName,
-    Labels: labels,
-    Internal: false,
-  });
+  try {
+    // 1. Create isolated network
+    network = await docker.createNetwork({
+      Name: networkName,
+      Labels: labels,
+      Internal: false,
+    });
 
-  // 2. DB 컨테이너 먼저 생성 & 시작
-  const db = await docker.createContainer({
-    Image: 'learnops-vuln-db',
-    name: `${LABEL_PREFIX}-db-${sessionId}`,
-    Labels: labels,
-    Env: [
-      'MYSQL_ROOT_PASSWORD=rootpass',
-      'MYSQL_DATABASE=vuln_db',
-      'MYSQL_USER=vuln_user',
-      'MYSQL_PASSWORD=vuln_pass',
-    ],
-    HostConfig: {
-      ...CONTAINER_LIMITS,
-      NetworkMode: networkName,
-      CapDrop: ['ALL'],
-      CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
-    },
-    NetworkingConfig: {
-      EndpointsConfig: { [networkName]: { Aliases: ['vuln-db'] } },
-    },
-  });
-
-  await db.start();
-
-  // 3. DB MySQL 준비 대기
-  const maxWait = 30000;
-  const t0 = Date.now();
-  let dbReady = false;
-  while (Date.now() - t0 < maxWait) {
-    try {
-      const exec = await db.exec({
-        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
-        AttachStdout: true, AttachStderr: true,
-      });
-      const stream = await exec.start({ Detach: false, Tty: false });
-      const output = await new Promise((resolve) => {
-        let buf = '';
-        stream.on('data', (chunk) => { buf += chunk.toString(); });
-        stream.on('end', () => resolve(buf));
-        stream.on('error', () => resolve(''));
-      });
-      if (output.includes('alive')) {
-        dbReady = true;
-        console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
-        break;
-      }
-    } catch { /* not ready */ }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  // 4. DB IP 주소 확보 (DNS alias 대신 직접 IP 사용)
-  const dbInfo = await db.inspect();
-  const dbIp = dbInfo.NetworkSettings.Networks?.[networkName]?.IPAddress;
-  if (!dbIp) {
-    throw new Error('DB 컨테이너 IP를 가져올 수 없습니다.');
-  }
-  console.log(`[docker] DB IP: ${dbIp}`);
-
-  // 5. vuln-app, attacker 생성 & 시작 (DB_HOST에 실제 IP 전달)
-  const [vulnApp, attacker] = await Promise.all([
-    docker.createContainer({
-      Image: 'learnops-vuln-app',
-      name: `${LABEL_PREFIX}-app-${sessionId}`,
+    // 2. DB 컨테이너 먼저 생성 & 시작
+    db = await docker.createContainer({
+      Image: 'learnops-vuln-db',
+      name: `${LABEL_PREFIX}-db-${sessionId}`,
       Labels: labels,
       Env: [
-        `DB_HOST=${dbIp}`,
-        'DB_USER=vuln_user',
-        'DB_PASS=vuln_pass',
-        'DB_NAME=vuln_db',
+        'MYSQL_ROOT_PASSWORD=rootpass',
+        'MYSQL_DATABASE=vuln_db',
+        'MYSQL_USER=vuln_user',
+        'MYSQL_PASSWORD=vuln_pass',
       ],
       HostConfig: {
         ...CONTAINER_LIMITS,
         NetworkMode: networkName,
         CapDrop: ['ALL'],
+        CapAdd: ['SETUID', 'SETGID', 'DAC_OVERRIDE', 'FOWNER', 'CHOWN'],
       },
       NetworkingConfig: {
-        EndpointsConfig: { [networkName]: { Aliases: ['target-app'] } },
+        EndpointsConfig: { [networkName]: { Aliases: ['vuln-db'] } },
       },
-    }),
-    docker.createContainer({
-      Image: 'learnops-attacker',
-      name: `${LABEL_PREFIX}-attacker-${sessionId}`,
-      Labels: labels,
-      Tty: true,
-      OpenStdin: true,
-      Cmd: ['/bin/bash'],
-      User: 'learner',
-      WorkingDir: '/home/learner/workspace',
-      HostConfig: {
-        ...CONTAINER_LIMITS,
-        NetworkMode: networkName,
-        CapDrop: ['ALL'],
-        CapAdd: ['NET_RAW'],
-      },
-      NetworkingConfig: {
-        EndpointsConfig: { [networkName]: { Aliases: ['attacker'] } },
-      },
-    }),
-  ]);
+    });
 
-  await Promise.all([vulnApp.start(), attacker.start()]);
+    await db.start();
 
-  sessions.set(sessionId, {
-    network,
-    containers: { attacker, vulnApp, db },
-    networkName,
-    dbReady,
-  });
+    // 3. DB가 실제 앱 계정(vuln_user/vuln_db)으로 접속 가능할 때까지 대기
+    const maxWaitMs = 90000;
+    const t0 = Date.now();
+    let dbReady = false;
+    while (Date.now() - t0 < maxWaitMs) {
+      try {
+        const { exitCode } = await runExec(db, [
+          'sh',
+          '-lc',
+          'mysql -h127.0.0.1 -uvuln_user -pvuln_pass -D vuln_db -e "SELECT 1" >/dev/null 2>&1',
+        ]);
+        if (exitCode === 0) {
+          dbReady = true;
+          console.log(`[docker] MySQL(app user) ready in ${Date.now() - t0}ms`);
+          break;
+        }
+      } catch {
+        // not ready yet
+      }
+      await sleep(1000);
+    }
 
-  return { status: 'started' };
+    if (!dbReady) {
+      throw new Error('DB 초기화가 지연되어 실습 환경 시작에 실패했습니다. 잠시 후 다시 시도하세요.');
+    }
+
+    // 4. DB IP 주소 확보 (DNS alias 대신 직접 IP 사용)
+    const dbInfo = await db.inspect();
+    const dbIp = dbInfo.NetworkSettings.Networks?.[networkName]?.IPAddress;
+    if (!dbIp) {
+      throw new Error('DB 컨테이너 IP를 가져올 수 없습니다.');
+    }
+    console.log(`[docker] DB IP: ${dbIp}`);
+
+    // 5. vuln-app, attacker 생성 & 시작 (DB_HOST에 실제 IP 전달)
+    [vulnApp, attacker] = await Promise.all([
+      docker.createContainer({
+        Image: 'learnops-vuln-app',
+        name: `${LABEL_PREFIX}-app-${sessionId}`,
+        Labels: labels,
+        Env: [
+          `DB_HOST=${dbIp}`,
+          'DB_USER=vuln_user',
+          'DB_PASS=vuln_pass',
+          'DB_NAME=vuln_db',
+        ],
+        HostConfig: {
+          ...CONTAINER_LIMITS,
+          NetworkMode: networkName,
+          CapDrop: ['ALL'],
+        },
+        NetworkingConfig: {
+          EndpointsConfig: { [networkName]: { Aliases: ['target-app'] } },
+        },
+      }),
+      docker.createContainer({
+        Image: 'learnops-attacker',
+        name: `${LABEL_PREFIX}-attacker-${sessionId}`,
+        Labels: labels,
+        Tty: true,
+        OpenStdin: true,
+        Cmd: ['/bin/bash'],
+        User: 'learner',
+        WorkingDir: '/home/learner/workspace',
+        HostConfig: {
+          ...CONTAINER_LIMITS,
+          NetworkMode: networkName,
+          CapDrop: ['ALL'],
+          CapAdd: ['NET_RAW'],
+        },
+        NetworkingConfig: {
+          EndpointsConfig: { [networkName]: { Aliases: ['attacker'] } },
+        },
+      }),
+    ]);
+
+    await Promise.all([vulnApp.start(), attacker.start()]);
+
+    sessions.set(sessionId, {
+      network,
+      containers: { attacker, vulnApp, db },
+      networkName,
+      dbReady: true,
+    });
+
+    return { status: 'started' };
+  } catch (err) {
+    await Promise.allSettled([
+      removeContainerSafe(attacker),
+      removeContainerSafe(vulnApp),
+      removeContainerSafe(db),
+    ]);
+    await removeNetworkSafe(network);
+    throw err;
+  }
 }
 
 /**
