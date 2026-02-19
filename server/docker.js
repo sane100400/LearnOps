@@ -151,43 +151,43 @@ export async function startLab(sessionId) {
     }),
   ]);
 
-  // 3. 동시 시작
-  await Promise.all([db.start(), vulnApp.start(), attacker.start()]);
+  // 3. DB를 먼저 시작하고 준비될 때까지 대기 (vuln-db DNS 별칭 등록 보장)
+  await db.start();
+
+  const maxWait = 30000;
+  const t0 = Date.now();
+  let dbReady = false;
+  while (Date.now() - t0 < maxWait) {
+    try {
+      const exec = await db.exec({
+        Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
+        AttachStdout: true, AttachStderr: true,
+      });
+      const stream = await exec.start({ Detach: false, Tty: false });
+      const output = await new Promise((resolve) => {
+        let buf = '';
+        stream.on('data', (chunk) => { buf += chunk.toString(); });
+        stream.on('end', () => resolve(buf));
+        stream.on('error', () => resolve(''));
+        });
+      if (output.includes('alive')) {
+        dbReady = true;
+        console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
+        break;
+      }
+    } catch { /* not ready */ }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // 4. DB 준비 후 vuln-app, attacker 시작
+  await Promise.all([vulnApp.start(), attacker.start()]);
 
   sessions.set(sessionId, {
     network,
     containers: { attacker, vulnApp, db },
     networkName,
-    dbReady: false,
+    dbReady,
   });
-
-  // 4. MySQL 준비 체크를 백그라운드로 (API 응답은 즉시 반환)
-  (async () => {
-    const maxWait = 30000;
-    const t0 = Date.now();
-    while (Date.now() - t0 < maxWait) {
-      try {
-        const exec = await db.exec({
-          Cmd: ['mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-prootpass', '--silent'],
-          AttachStdout: true, AttachStderr: true,
-        });
-        const stream = await exec.start({ Detach: false, Tty: false });
-        const output = await new Promise((resolve) => {
-          let buf = '';
-          stream.on('data', (chunk) => { buf += chunk.toString(); });
-          stream.on('end', () => resolve(buf));
-          stream.on('error', () => resolve(''));
-        });
-        if (output.includes('alive')) {
-          const s = sessions.get(sessionId);
-          if (s) s.dbReady = true;
-          console.log(`[docker] MySQL ready in ${Date.now() - t0}ms`);
-          break;
-        }
-      } catch { /* not ready */ }
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  })();
 
   return { status: 'started' };
 }
