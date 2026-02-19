@@ -257,6 +257,7 @@ ${userFocusHint}
 - 예: "시스템 해킹에 관심"이라고 답했으면 → "어떤 OS 환경(Linux/Windows)에서 학습하고 싶으신가요?", "버퍼 오버플로우나 권한 상승 중 어떤 기법에 더 흥미가 있나요?" 처럼 해당 분야를 파고드세요
 - 같은 대주제라도 **다른 각도**에서 물어보세요 (예: 목표 → 시기/기한, 경험 → 어려웠던 점)
 - 단답형이 나올 법한 뻔한 질문 대신, 사용자의 생각을 끌어낼 수 있는 질문을 하세요
+- **사용자가 "모름", "잘 모르겠어요", "없어요", "아직 없음" 등 모르거나 해당 없다는 답변을 했다면, 그 주제를 다시 묻지 말고 완전히 다른 주제로 넘어가세요.** 같은 주제를 다른 말로 바꿔서 다시 물어보는 것도 금지입니다.
 - **절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
 - **이전에 이미 질문한 내용과 같거나 유사한 질문은 절대 하지 마세요.**
 
@@ -1298,6 +1299,11 @@ export default function LevelTest() {
               ) : currentQ ? (
                 <div style={s.questionCard}>
                   <div style={s.qHeader}>
+                    {qIdx > 0 && (
+                      <button onClick={goBack} style={s.goBackBtn}>
+                        <ChevronLeft size={16} /> 이전
+                      </button>
+                    )}
                     <span style={s.qNumber}>Q{qIdx + 1}</span>
                     {currentQ.type === 'quiz' && <span style={s.qBadgeQuiz}>지식 문제</span>}
                     {currentQ.type === 'single-with-text' && <span style={s.qBadgeSingle}>단일 선택</span>}
@@ -1308,11 +1314,6 @@ export default function LevelTest() {
                   {/* ---- Quiz (4지선다, 자동 이동) ---- */}
                   {currentQ.type === 'quiz' && (
                     <>
-                      {qIdx > 0 && selectedOption === null && (
-                        <button onClick={goBack} style={s.goBackBtn}>
-                          <ChevronLeft size={16} /> 이전 질문
-                        </button>
-                      )}
                       <div style={s.optionsList}>
                         {currentQ.options.map((opt, i) => (
                           <button
@@ -1367,7 +1368,7 @@ export default function LevelTest() {
                         setTextInput={setTextInput}
                         textRef={textRef}
                       />
-                      <SubmitFooter canSubmit={canSubmit()} onSubmit={submitAnswer} canGoBack={qIdx > 0} onGoBack={goBack} />
+                      <SubmitFooter canSubmit={canSubmit()} onSubmit={submitAnswer} />
                     </>
                   )}
 
@@ -1405,8 +1406,6 @@ export default function LevelTest() {
                         canSubmit={canSubmit()}
                         onSubmit={submitAnswer}
                         countLabel={multiSelection.length > 0 ? `${multiSelection.length}개 선택됨` : null}
-                        canGoBack={qIdx > 0}
-                        onGoBack={goBack}
                       />
                     </>
                   )}
@@ -1828,14 +1827,9 @@ function TextInputToggle({ showTextInput, setShowTextInput, textInput, setTextIn
   )
 }
 
-function SubmitFooter({ canSubmit, onSubmit, countLabel, canGoBack, onGoBack }) {
+function SubmitFooter({ canSubmit, onSubmit, countLabel }) {
   return (
     <div style={s.submitFooter}>
-      {canGoBack && (
-        <button onClick={onGoBack} style={s.goBackBtn}>
-          <ChevronLeft size={16} /> 이전
-        </button>
-      )}
       {countLabel && <span style={s.multiCount}>{countLabel}</span>}
       <Button
         size="large"
