@@ -158,11 +158,11 @@
         <form action="/login.php" method="POST">
             <div class="form-group">
                 <label>Username</label>
-                <input name="username" placeholder="관리자 계정을 입력하세요" required autocomplete="off" />
+                <input name="username" placeholder="관리자 계정을 입력하세요" autocomplete="off" />
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input name="password" type="password" placeholder="비밀번호" required />
+                <input name="password" type="password" placeholder="비밀번호" />
             </div>
             <button type="submit">로그인</button>
         </form>

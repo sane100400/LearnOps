@@ -27,10 +27,10 @@ app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiter for lab API (10 requests per minute)
+// Rate limiter for lab API (start/stop 등 관리 API용)
 const labLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 60,
   message: { error: 'Too many requests, please try again later.' },
 });
 
