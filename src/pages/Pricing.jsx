@@ -1,19 +1,133 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, X, ChevronDown, Sparkles, ArrowRight, Building2, Mail } from 'lucide-react'
+import { Check, X, ChevronDown, Sparkles, ArrowRight, Building2, Mail, User, Users } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import Button from '../components/Button'
 import Footer from '../components/Footer'
-import { plans, featureTable, faqs } from '../data/pricingData'
+import { individualPlans, teamPlans, featureTable, faqs } from '../data/pricingData'
 
 function formatPrice(price) {
   if (price === 0) return '무료'
   return `₩${price.toLocaleString()}`
 }
 
+function renderCellValue(val) {
+  if (val === true) return <Check size={18} style={{ color: '#10B981' }} />
+  if (val === false) return <X size={18} style={{ color: '#CBD5E1' }} />
+  return <span>{val}</span>
+}
+
+function PlanCard({ plan, isYearly, isTeam }) {
+  const price = plan.isEnterprise ? null : (isYearly ? plan.price.yearly : plan.price.monthly)
+  const unit = isTeam ? (plan.priceUnit || '') : '/월'
+  const isMailLink = plan.ctaLink?.startsWith('mailto:')
+
+  const ctaEl = (
+    <Button
+      variant={plan.highlighted ? 'primary' : 'secondary'}
+      style={{ width: '100%', padding: '14px 24px' }}
+    >
+      {plan.cta} <ArrowRight size={16} />
+    </Button>
+  )
+
+  return (
+    <div style={{ ...styles.card, ...(plan.highlighted ? styles.cardHighlighted : {}) }}>
+      {plan.badge && <div style={styles.recommendBadge}>{plan.badge}</div>}
+      <h3 style={styles.cardName}>{plan.name}</h3>
+      <p style={styles.cardDesc}>{plan.desc}</p>
+
+      <div style={styles.priceWrap}>
+        {plan.isEnterprise ? (
+          <span style={{ ...styles.price, fontSize: '1.6rem' }}>별도 협의</span>
+        ) : (
+          <>
+            <span style={styles.price}>{formatPrice(price)}</span>
+            {price > 0 && <span style={styles.priceUnit}>/{unit}</span>}
+          </>
+        )}
+      </div>
+
+      {!plan.isEnterprise && isYearly && price > 0 && (
+        <p style={styles.priceSub}>
+          월 {formatPrice(plan.price.monthly)} 대비 20% 절약
+        </p>
+      )}
+
+      {isTeam && plan.minMembers && (
+        <p style={styles.minMembers}>최소 {plan.minMembers}명부터</p>
+      )}
+
+      <div style={{ marginTop: '24px' }}>
+        {isMailLink ? (
+          <a href={plan.ctaLink} style={{ textDecoration: 'none', display: 'block' }}>{ctaEl}</a>
+        ) : (
+          <Link to={plan.ctaLink} style={{ textDecoration: 'none', display: 'block' }}>{ctaEl}</Link>
+        )}
+      </div>
+
+      <ul style={styles.featureList}>
+        {plan.features.map((f, i) => (
+          <li key={i} style={styles.featureItem}>
+            <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ComparisonTable({ track }) {
+  const data = featureTable[track]
+  if (!data) return null
+  const cols = data.columns
+  const keys = cols.map((c) => c.toLowerCase())
+  const highlightIdx = track === 'individual' ? 1 : 1
+
+  return (
+    <div style={styles.tableWrap}>
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={{ ...styles.th, textAlign: 'left' }}>기능</th>
+            {cols.map((col, i) => (
+              <th key={col} style={{ ...styles.th, ...(i === highlightIdx ? styles.thHighlight : {}) }}>{col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.categories.map((cat) => (
+            <tbody key={cat.name}>
+              <tr>
+                <td colSpan={cols.length + 1} style={styles.categoryRow}>{cat.name}</td>
+              </tr>
+              {cat.features.map((feat, i) => (
+                <tr key={`${cat.name}-${i}`}>
+                  <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 500 }}>
+                    {feat.label}
+                  </td>
+                  {keys.map((key, ki) => (
+                    <td key={key} style={{ ...styles.td, ...(ki === highlightIdx ? styles.tdHighlight : {}) }}>
+                      {renderCellValue(feat[key])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false)
+  const [track, setTrack] = useState('individual')
   const [openFaq, setOpenFaq] = useState(null)
+
+  const plans = track === 'individual' ? individualPlans : teamPlans
 
   return (
     <div className="page-wrapper">
@@ -27,18 +141,40 @@ export default function Pricing() {
             <div style={styles.heroContent}>
               <div style={styles.badge}>
                 <Sparkles size={14} />
-                <span>합리적인 가격</span>
+                <span>나에게 맞는 플랜</span>
               </div>
               <h1 style={styles.heroTitle}>
-                동아리와 교육단체를 위한<br />
-                <span className="gradient-text">합리적인 요금제</span>
+                학습 목적에 맞는<br />
+                <span className="gradient-text">최적의 요금제</span>
               </h1>
               <p style={styles.heroDesc}>
-                팀 규모와 필요에 맞는 플랜을 선택하세요.<br />
-                모든 플랜은 14일 환불 보장을 제공합니다.
+                혼자 실력을 키우든, 팀과 함께 성장하든.<br />
+                14일 환불 보장으로 부담 없이 시작하세요.
               </p>
 
-              {/* Monthly / Yearly toggle */}
+              {/* Track toggle */}
+              <div style={styles.trackToggle}>
+                <button
+                  style={{
+                    ...styles.trackBtn,
+                    ...(track === 'individual' ? styles.trackBtnActive : {}),
+                  }}
+                  onClick={() => setTrack('individual')}
+                >
+                  <User size={16} /> 개인
+                </button>
+                <button
+                  style={{
+                    ...styles.trackBtn,
+                    ...(track === 'team' ? styles.trackBtnActive : {}),
+                  }}
+                  onClick={() => setTrack('team')}
+                >
+                  <Users size={16} /> 팀 / 기관
+                </button>
+              </div>
+
+              {/* Billing toggle */}
               <div style={styles.toggleWrap}>
                 <span style={{ ...styles.toggleLabel, color: !isYearly ? '#0F172A' : '#94A3B8' }}>월간</span>
                 <button
@@ -60,101 +196,47 @@ export default function Pricing() {
         {/* Pricing Cards */}
         <section style={styles.section}>
           <div className="container">
-            <div style={styles.cardGrid}>
+            <div style={{
+              ...styles.cardGrid,
+              gridTemplateColumns: `repeat(${plans.length}, 1fr)`,
+            }}>
               {plans.map((plan) => (
-                <div
+                <PlanCard
                   key={plan.id}
-                  style={{
-                    ...styles.card,
-                    ...(plan.highlighted ? styles.cardHighlighted : {}),
-                  }}
-                >
-                  {plan.badge && (
-                    <div style={styles.recommendBadge}>{plan.badge}</div>
-                  )}
-                  <h3 style={styles.cardName}>{plan.name}</h3>
-                  <p style={styles.cardDesc}>{plan.desc}</p>
-                  <div style={styles.priceWrap}>
-                    <span style={styles.price}>
-                      {formatPrice(isYearly ? plan.price.yearly : plan.price.monthly)}
-                    </span>
-                    {plan.price.monthly > 0 && (
-                      <span style={styles.priceUnit}>/월</span>
-                    )}
-                  </div>
-                  {isYearly && plan.price.monthly > 0 && (
-                    <p style={styles.priceSub}>
-                      연 {formatPrice(plan.price.yearly * 12)} (월 {formatPrice(plan.price.monthly)} 대비 절약)
-                    </p>
-                  )}
-                  <Link to={plan.ctaLink} style={{ textDecoration: 'none', display: 'block', marginTop: '24px' }}>
-                    <Button
-                      variant={plan.highlighted ? 'primary' : 'secondary'}
-                      style={{ width: '100%', padding: '14px 24px' }}
-                    >
-                      {plan.cta} <ArrowRight size={16} />
-                    </Button>
-                  </Link>
-                  <ul style={styles.featureList}>
-                    {plan.features.map((f, i) => (
-                      <li key={i} style={styles.featureItem}>
-                        <Check size={16} style={{ color: '#10B981', flexShrink: 0 }} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  plan={plan}
+                  isYearly={isYearly}
+                  isTeam={track === 'team'}
+                />
               ))}
             </div>
+
+            {/* Value callout for team */}
+            {track === 'team' && (
+              <div style={styles.valueCallout}>
+                <div style={styles.valueIcon}>
+                  <Users size={20} />
+                </div>
+                <div>
+                  <strong style={{ color: '#0F172A' }}>팀 플랜 = 개인 Pro 전체 기능 + 관리 도구</strong>
+                  <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0' }}>
+                    모든 팀 멤버가 Pro의 무제한 학습 기능을 사용하고, 관리자는 대시보드에서 팀 역량을 한눈에 파악합니다.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
-        {/* Feature Comparison Table */}
+        {/* Feature Comparison */}
         <section style={{ ...styles.section, background: '#F8FAFC' }}>
           <div className="container">
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
               <h2 className="section-title">기능 비교</h2>
-              <p className="section-subtitle">플랜별 상세 기능을 비교해보세요</p>
+              <p className="section-subtitle">
+                {track === 'individual' ? '개인 플랜별 상세 기능' : '팀 플랜별 상세 기능'}을 비교해보세요
+              </p>
             </div>
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={{ ...styles.th, textAlign: 'left' }}>기능</th>
-                    <th style={styles.th}>Free</th>
-                    <th style={{ ...styles.th, ...styles.thHighlight }}>Basic</th>
-                    <th style={styles.th}>Pro</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {featureTable.categories.map((cat) => (
-                    <>
-                      <tr key={`cat-${cat.name}`}>
-                        <td colSpan={4} style={styles.categoryRow}>{cat.name}</td>
-                      </tr>
-                      {cat.features.map((feat, i) => (
-                        <tr key={`${cat.name}-${i}`}>
-                          <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 500 }}>
-                            {feat.label}
-                          </td>
-                          {['free', 'basic', 'pro'].map((tier) => (
-                            <td
-                              key={tier}
-                              style={{
-                                ...styles.td,
-                                ...(tier === 'basic' ? styles.tdHighlight : {}),
-                              }}
-                            >
-                              {renderCellValue(feat[tier])}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ComparisonTable track={track} />
           </div>
         </section>
 
@@ -200,7 +282,7 @@ export default function Pricing() {
               지금 바로 시작하세요
             </h2>
             <p style={{ color: '#64748B', fontSize: '1.1rem', marginBottom: '32px' }}>
-              무료 플랜으로 LearnOps를 체험하고, 팀에 맞는 플랜으로 확장하세요.
+              무료로 LearnOps를 체험하고, 나에게 맞는 플랜으로 확장하세요.
             </p>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link to="/register">
@@ -218,19 +300,8 @@ export default function Pricing() {
         </section>
       </main>
       <Footer />
-      <PricingStyles />
     </div>
   )
-}
-
-function renderCellValue(val) {
-  if (val === true) return <Check size={18} style={{ color: '#10B981' }} />
-  if (val === false) return <X size={18} style={{ color: '#CBD5E1' }} />
-  return <span>{val}</span>
-}
-
-function PricingStyles() {
-  return null
 }
 
 const styles = {
@@ -290,6 +361,38 @@ const styles = {
     lineHeight: 1.8,
     marginBottom: '40px',
   },
+
+  /* Track toggle (개인 / 팀) */
+  trackToggle: {
+    display: 'inline-flex',
+    gap: '4px',
+    padding: '4px',
+    background: '#F1F5F9',
+    borderRadius: '12px',
+    marginBottom: '24px',
+  },
+  trackBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '10px 24px',
+    borderRadius: '10px',
+    border: 'none',
+    background: 'transparent',
+    color: '#64748B',
+    fontSize: '0.9rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    fontFamily: "'Inter', sans-serif",
+  },
+  trackBtnActive: {
+    background: '#fff',
+    color: '#4F46E5',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  },
+
+  /* Billing toggle */
   toggleWrap: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -333,12 +436,10 @@ const styles = {
     fontWeight: 700,
   },
 
-  section: {
-    padding: '80px 0',
-  },
+  /* Cards */
+  section: { padding: '80px 0' },
   cardGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '24px',
     alignItems: 'start',
   },
@@ -401,6 +502,11 @@ const styles = {
     color: '#10B981',
     marginTop: '4px',
   },
+  minMembers: {
+    fontSize: '0.8rem',
+    color: '#94A3B8',
+    marginTop: '4px',
+  },
   featureList: {
     listStyle: 'none',
     padding: 0,
@@ -417,10 +523,31 @@ const styles = {
     color: '#334155',
   },
 
-  /* Table */
-  tableWrap: {
-    overflowX: 'auto',
+  /* Value callout */
+  valueCallout: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginTop: '32px',
+    padding: '20px 28px',
+    background: 'rgba(79, 70, 229, 0.04)',
+    border: '1px solid rgba(79, 70, 229, 0.12)',
+    borderRadius: '14px',
   },
+  valueIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '12px',
+    background: 'rgba(79, 70, 229, 0.1)',
+    color: '#4F46E5',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  /* Table */
+  tableWrap: { overflowX: 'auto' },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
@@ -502,15 +629,13 @@ const styles = {
   },
 
   /* CTA */
-  ctaSection: {
-    padding: '100px 0',
-  },
+  ctaSection: { padding: '100px 0' },
 }
 
 const pricingStyleSheet = document.createElement('style')
 pricingStyleSheet.textContent = `
   @media (max-width: 900px) {
-    .page-content section > .container > div[style*="grid-template-columns: repeat(3"] {
+    .pricing-card-grid {
       grid-template-columns: 1fr !important;
     }
   }
