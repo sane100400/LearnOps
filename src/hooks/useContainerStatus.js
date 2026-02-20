@@ -2,10 +2,14 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
  * Manages container lifecycle via REST API.
- * States: idle -> starting -> running -> stopping -> stopped
+ * States: idle -> starting -> running -> stopping -> stopped -> error
+ *
+ * Lab start is asynchronous on the server — the POST returns immediately
+ * with { status: 'starting' }.  We poll /api/lab/status until the server
+ * reports 'running' or 'failed'.
  */
 export default function useContainerStatus(sessionId) {
-  const [status, setStatus] = useState('idle'); // idle | starting | running | stopping | stopped | error
+  const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const pollingRef = useRef(null);
 
@@ -16,39 +20,26 @@ export default function useContainerStatus(sessionId) {
     }
   }, []);
 
-  const checkStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/lab/status?session=${sessionId}`);
-      if (!res.ok) return;
-
-      const data = await res.json();
-      if (data.status === 'running') {
-        setStatus('running');
-        setError(null);
-        clearPolling();
-      } else if (data.status === 'starting') {
-        setStatus((prev) => (prev === 'stopping' ? prev : 'starting'));
-      } else if (data.status === 'stopping') {
-        setStatus('stopping');
-      } else if (data.status === 'failed') {
-        setError(data.error || '실습 환경 시작에 실패했습니다.');
-        setStatus('error');
-        clearPolling();
-      } else if (data.status === 'stopped') {
-        setStatus((prev) => (prev === 'stopping' ? 'stopped' : prev === 'running' ? 'stopped' : prev));
-        clearPolling();
-      }
-    } catch {
-      // ignore polling errors
-    }
-  }, [sessionId, clearPolling]);
-
+  // Poll /api/lab/status until lab becomes 'running' or 'failed'
   const startPolling = useCallback(() => {
     clearPolling();
-    pollingRef.current = setInterval(() => {
-      checkStatus();
-    }, 1500);
-  }, [checkStatus, clearPolling]);
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/lab/status?session=${sessionId}`);
+        const data = await res.json();
+        if (data.status === 'running') {
+          clearPolling();
+          setStatus('running');
+          setError(null);
+        } else if (data.status === 'failed') {
+          clearPolling();
+          setError(data.error || '실습 환경 시작에 실패했습니다.');
+          setStatus('error');
+        }
+        // 'starting' -> keep polling
+      } catch { /* ignore transient polling errors */ }
+    }, 2000);
+  }, [sessionId, clearPolling]);
 
   const start = useCallback(async () => {
     setStatus('starting');
@@ -63,22 +54,17 @@ export default function useContainerStatus(sessionId) {
       if (!res.ok) throw new Error(data.error || 'Failed to start');
 
       if (data.status === 'running') {
+        // Already running (e.g. from a previous session)
         setStatus('running');
-        clearPolling();
-        return;
+      } else {
+        // status === 'starting' — poll until ready
+        startPolling();
       }
-      if (data.status === 'failed') {
-        throw new Error(data.error || 'Failed to start');
-      }
-
-      setStatus('starting');
-      await checkStatus();
-      startPolling();
     } catch (err) {
       setError(err.message);
       setStatus('error');
     }
-  }, [sessionId, checkStatus, startPolling, clearPolling]);
+  }, [sessionId, startPolling]);
 
   const stop = useCallback(async () => {
     setStatus('stopping');
@@ -101,7 +87,6 @@ export default function useContainerStatus(sessionId) {
 
   const restart = useCallback(async () => {
     await stop();
-    // Small delay to let containers fully clean up
     await new Promise((r) => setTimeout(r, 1000));
     await start();
   }, [start, stop]);
@@ -111,5 +96,5 @@ export default function useContainerStatus(sessionId) {
     return () => clearPolling();
   }, [clearPolling]);
 
-  return { status, error, start, stop, restart, checkStatus };
+  return { status, error, start, stop, restart };
 }

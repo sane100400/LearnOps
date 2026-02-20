@@ -45,6 +45,7 @@ async function runExec(container, cmd) {
 async function removeContainerSafe(container) {
   if (!container) return;
   try {
+    await container.stop({ t: 2 }).catch(() => {});
     await container.remove({ force: true });
   } catch {
     // ignore cleanup failures
@@ -58,6 +59,35 @@ async function removeNetworkSafe(network) {
   } catch {
     // ignore cleanup failures
   }
+}
+
+/**
+ * Remove orphan containers and network for a specific session name.
+ * Called before provisioning to prevent 409 network name conflicts.
+ */
+async function cleanupSession(sessionId) {
+  const networkName = `${NETWORK_PREFIX}-${sessionId}`;
+  const containerNames = [
+    `${LABEL_PREFIX}-db-${sessionId}`,
+    `${LABEL_PREFIX}-app-${sessionId}`,
+    `${LABEL_PREFIX}-attacker-${sessionId}`,
+  ];
+
+  // Force-remove containers first (must detach from network before removing it)
+  for (const name of containerNames) {
+    try {
+      const c = docker.getContainer(name);
+      await c.stop({ t: 2 }).catch(() => {});
+      await c.remove({ force: true });
+    } catch { /* not found — fine */ }
+  }
+
+  // Then remove the network
+  try {
+    const n = docker.getNetwork(networkName);
+    await n.inspect(); // throws if not found
+    await n.remove();
+  } catch { /* not found — fine */ }
 }
 
 function buildSessionState(sessionId) {
@@ -136,6 +166,9 @@ async function preflight() {
 async function provisionLab(sessionId, session) {
   await preflight();
 
+  // Clean up any leftover resources from a previous failed attempt
+  await cleanupSession(sessionId);
+
   const networkName = session.networkName;
   const labels = { 'managed-by': LABEL_PREFIX, session: sessionId };
   let network;
@@ -151,7 +184,7 @@ async function provisionLab(sessionId, session) {
       Internal: false,
     });
 
-    // 2. DB 컨테이너 먼저 생성 & 시작
+    // 2. DB container
     db = await docker.createContainer({
       Image: 'learnops-vuln-db',
       name: `${LABEL_PREFIX}-db-${sessionId}`,
@@ -175,16 +208,15 @@ async function provisionLab(sessionId, session) {
 
     await db.start();
 
-    // 3. DB가 실제 앱 계정(vuln_user/vuln_db)으로 접속 가능할 때까지 대기
-    const maxWaitMs = 90000;
+    // 3. Wait for DB readiness (app user can connect)
+    const maxWaitMs = 120000;
     const t0 = Date.now();
     let dbReady = false;
     while (Date.now() - t0 < maxWaitMs) {
       try {
         const { exitCode } = await runExec(db, [
-          'sh',
-          '-lc',
-          'mysql -h127.0.0.1 -uvuln_user -pvuln_pass -D vuln_db -e "SELECT 1" >/dev/null 2>&1',
+          'sh', '-c',
+          'mysql -h127.0.0.1 -uvuln_user -pvuln_pass -D vuln_db -e "SELECT 1" 2>/dev/null',
         ]);
         if (exitCode === 0) {
           dbReady = true;
@@ -194,14 +226,14 @@ async function provisionLab(sessionId, session) {
       } catch {
         // not ready yet
       }
-      await sleep(1000);
+      await sleep(2000);
     }
 
     if (!dbReady) {
       throw new Error('DB 초기화가 지연되어 실습 환경 시작에 실패했습니다. 잠시 후 다시 시도하세요.');
     }
 
-    // 4. DB IP 주소 확보 (DNS alias 대신 직접 IP 사용)
+    // 4. Get DB IP address
     const dbInfo = await db.inspect();
     const dbIp = dbInfo.NetworkSettings.Networks?.[networkName]?.IPAddress;
     if (!dbIp) {
@@ -209,7 +241,7 @@ async function provisionLab(sessionId, session) {
     }
     console.log(`[docker] DB IP: ${dbIp}`);
 
-    // 5. vuln-app, attacker 생성 & 시작 (DB_HOST에 실제 IP 전달)
+    // 5. Start app + attacker containers
     [vulnApp, attacker] = await Promise.all([
       docker.createContainer({
         Image: 'learnops-vuln-app',
@@ -285,9 +317,8 @@ export function startLab(sessionId) {
     if (existing.status === 'running') return { status: 'running' };
     if (existing.status === 'starting') return { status: 'starting' };
     if (existing.status === 'stopping') return { status: 'stopping' };
-    if (existing.status === 'failed') {
-      sessions.delete(sessionId);
-    }
+    // 'failed' -> clean up and retry
+    sessions.delete(sessionId);
   }
 
   const session = buildSessionState(sessionId);
@@ -325,22 +356,14 @@ export async function stopLab(sessionId) {
   session.error = null;
   const { network, containers = {} } = session;
 
-  // Stop and remove containers in reverse order
   for (const name of ['attacker', 'vulnApp', 'db']) {
     const container = containers[name];
     if (!container) continue;
-    try {
-      await container.stop({ t: 2 });
-    } catch { /* already stopped */ }
-    try {
-      await container.remove({ force: true });
-    } catch { /* already removed */ }
+    try { await container.stop({ t: 2 }); } catch { /* already stopped */ }
+    try { await container.remove({ force: true }); } catch { /* already removed */ }
   }
 
-  // Remove network
-  try {
-    await network.remove();
-  } catch { /* already removed */ }
+  try { await network?.remove(); } catch { /* already removed */ }
 
   sessions.delete(sessionId);
   return { status: 'stopped' };

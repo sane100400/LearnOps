@@ -15,6 +15,7 @@ const PORT = process.env.SERVER_PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
 const app = express();
+app.set('trust proxy', 1);
 const server = createServer(app);
 
 // Middleware — skip helmet for lab proxy (iframe embedding)
