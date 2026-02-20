@@ -102,8 +102,8 @@ function ComparisonTable({ track }) {
               <td colSpan={cols.length + 1} style={styles.categoryRow}>{cat.name}</td>
             </tr>
             {cat.features.map((feat, i) => (
-              <tr key={`${cat.name}-${i}`}>
-                <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 500 }}>
+              <tr key={`${cat.name}-${i}`} style={i % 2 === 1 ? { background: '#FAFBFC' } : {}}>
+                <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 600 }}>
                   {feat.label}
                 </td>
                 {keys.map((key, ki) => (
@@ -545,46 +545,51 @@ const styles = {
   },
 
   /* Table */
-  tableWrap: { overflowX: 'auto' },
+  tableWrap: {
+    overflowX: 'auto',
+    borderRadius: '16px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+  },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
     background: '#fff',
     borderRadius: '16px',
     overflow: 'hidden',
-    border: '1px solid #E2E8F0',
+    border: '2px solid #E2E8F0',
   },
   th: {
-    padding: '16px 20px',
-    fontSize: '0.9rem',
-    fontWeight: 700,
+    padding: '18px 24px',
+    fontSize: '0.95rem',
+    fontWeight: 800,
     color: '#0F172A',
     textAlign: 'center',
-    background: '#F8FAFC',
-    borderBottom: '1px solid #E2E8F0',
+    background: '#F1F5F9',
+    borderBottom: '2px solid #E2E8F0',
   },
   thHighlight: {
-    background: 'rgba(79, 70, 229, 0.08)',
+    background: 'linear-gradient(135deg, rgba(79,70,229,0.12), rgba(6,182,212,0.08))',
     color: '#4F46E5',
   },
   categoryRow: {
-    padding: '12px 20px',
+    padding: '14px 24px',
     fontSize: '0.85rem',
-    fontWeight: 700,
-    color: '#4F46E5',
-    background: '#F8FAFC',
-    borderTop: '1px solid #E2E8F0',
-    borderBottom: '1px solid #E2E8F0',
+    fontWeight: 800,
+    color: '#fff',
+    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   },
   td: {
-    padding: '14px 20px',
+    padding: '16px 24px',
     fontSize: '0.9rem',
-    color: '#64748B',
+    color: '#334155',
     textAlign: 'center',
-    borderBottom: '1px solid #F1F5F9',
+    borderBottom: '1px solid #E2E8F0',
+    fontWeight: 500,
   },
   tdHighlight: {
-    background: 'rgba(79, 70, 229, 0.03)',
+    background: 'rgba(79, 70, 229, 0.06)',
   },
 
   /* FAQ */
