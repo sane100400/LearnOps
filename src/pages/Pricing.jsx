@@ -157,7 +157,7 @@ export default function Pricing() {
                     ...styles.trackBtn,
                     ...(track === 'individual' ? styles.trackBtnActive : {}),
                   }}
-                  onClick={() => setTrack('individual')}
+                  onClick={() => { setTrack('individual'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                 >
                   <User size={16} /> 개인
                 </button>
@@ -166,7 +166,7 @@ export default function Pricing() {
                     ...styles.trackBtn,
                     ...(track === 'team' ? styles.trackBtnActive : {}),
                   }}
-                  onClick={() => setTrack('team')}
+                  onClick={() => { setTrack('team'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                 >
                   <Users size={16} /> 팀 / 기관
                 </button>
