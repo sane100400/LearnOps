@@ -50,10 +50,6 @@ export default function Login() {
             <div style={styles.errorBox}>{error}</div>
           )}
 
-          <div style={styles.hintBox}>
-            데모 계정: <strong>boahn.kim@example.com</strong> (비밀번호 아무거나)
-          </div>
-
           <form onSubmit={handleSubmit} style={styles.form}>
             {/* Email */}
             <div style={styles.fieldGroup}>
@@ -241,16 +237,6 @@ const styles = {
     fontSize: '0.85rem',
     textAlign: 'center',
     marginBottom: '8px',
-  },
-  hintBox: {
-    padding: '12px 16px',
-    borderRadius: '10px',
-    background: '#F0F9FF',
-    border: '1px solid #BAE6FD',
-    color: '#0369A1',
-    fontSize: '0.8rem',
-    textAlign: 'center',
-    marginBottom: '16px',
   },
   form: {
     display: 'flex',
