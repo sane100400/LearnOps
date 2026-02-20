@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -61,13 +62,17 @@ const statusColors = {
 }
 
 export default function Lab() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(LAB_TYPE === 'web' ? 'web' : 'terminal')
   const [showHint, setShowHint] = useState(false)
   const [hintLevel, setHintLevel] = useState(0)
   const [timeLeft, setTimeLeft] = useState(1800)
   const timerRef = useRef(null)
   const [submitted, setSubmitted] = useState(false)
-  const [labCleared, setLabCleared] = useState(false)
+  const [labCleared, setLabCleared] = useState(() => {
+    return localStorage.getItem('lab-sqli-cleared') === 'true'
+  })
+  const [showActions, setShowActions] = useState(false)
 
   // xterm.js refs
   const terminalRef = useRef(null)
@@ -180,11 +185,21 @@ export default function Lab() {
       if (e.data?.type === 'lab-clear') {
         setLabCleared(true)
         setSubmitted(true)
+        localStorage.setItem('lab-sqli-cleared', 'true')
       }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
   }, [])
+
+  // Show action buttons 2 seconds after modal appears
+  useEffect(() => {
+    if (submitted && labCleared) {
+      setShowActions(false)
+      const timer = setTimeout(() => setShowActions(true), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [submitted, labCleared])
 
   const handleStart = useCallback(async () => {
     if (terminalRef.current) {
@@ -468,12 +483,14 @@ export default function Lab() {
         {submitted && labCleared && (
           <div style={styles.modalOverlay}>
             <div style={styles.modalCard}>
-              <button
-                onClick={() => setSubmitted(false)}
-                style={styles.modalCloseBtn}
-              >
-                <XCircle size={20} />
-              </button>
+              {showActions && (
+                <button
+                  onClick={() => setSubmitted(false)}
+                  style={styles.modalCloseBtn}
+                >
+                  <XCircle size={20} />
+                </button>
+              )}
 
               <div style={styles.modalContent}>
                 <CheckCircle2 size={56} style={{ color: '#10B981' }} />
@@ -489,14 +506,20 @@ export default function Lab() {
                   </div>
                 </div>
 
-                <div style={styles.modalActions}>
-                  <Button variant="primary" style={{ flex: 1 }}>
+                <div style={{
+                  ...styles.modalActions,
+                  opacity: showActions ? 1 : 0,
+                  transform: showActions ? 'translateY(0)' : 'translateY(8px)',
+                  transition: 'opacity 0.4s ease, transform 0.4s ease',
+                  pointerEvents: showActions ? 'auto' : 'none',
+                }}>
+                  <Button variant="primary" style={{ flex: 1 }} onClick={() => navigate('/curriculum')}>
                     <ChevronRight size={16} />
-                    다음 실습
+                    다음 과정
                   </Button>
-                  <Button variant="secondary" style={{ flex: 1 }}>
+                  <Button variant="secondary" style={{ flex: 1 }} onClick={() => setSubmitted(false)}>
                     <FileText size={16} />
-                    커리큘럼으로
+                    계속 실습
                   </Button>
                 </div>
               </div>
