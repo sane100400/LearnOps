@@ -26,30 +26,31 @@
 [React SPA] ←→ [Nginx] ←→ [Express API Server] ←→ [Docker Engine]
                                     ↓                      ↓
                              [OpenAI API]         [격리된 Lab 컨테이너]
-                                                  (attacker + vuln-app + DB)
+                             (gpt-4.1-mini)       (attacker + vuln-app + MariaDB)
 ```
 
-- **프론트엔드**: React 18, React Router 6, Recharts, xterm.js
-- **백엔드**: Express.js, WebSocket(ws), Dockerode
-- **AI**: OpenAI GPT-4o-mini (백엔드 프록시 `/api/ai/chat`)
-- **인프라**: Docker Compose, Nginx, systemd
+- **프론트엔드**: React 18, React Router 6, Recharts, xterm.js, Lucide Icons
+- **백엔드**: Express.js, WebSocket(ws), Dockerode, Helmet
+- **AI**: OpenAI GPT-4.1-mini (백엔드 프록시 `/api/ai/chat`)
+- **인프라**: Docker Compose (이미지 빌드), Nginx, systemd
 - **배포**: Oracle Cloud (158.101.142.47)
 
 ### 페이지 구성
 
 | 페이지 | 경로 | 설명 | 상태 |
 |---|---|---|---|
-| 랜딩 | `/` | 마케팅 홈페이지, 핵심 가치 제안 | 완료 |
-| 로그인 | `/login` | 이메일/비밀번호 인증 | UI 완료 (백엔드 미연동) |
+| 랜딩 | `/` | 마케팅 홈페이지, IT 분야 카테고리 카드, 핵심 가치 제안 | 완료 |
+| 로그인 | `/login` | 이메일 기반 인증 (localStorage 영속), GitHub/Google 소셜 로그인 UI | UI 완료 (백엔드 미연동) |
 | 회원가입 | `/register` | 이름, 이메일, 비밀번호, 역할 선택 | UI 완료 (백엔드 미연동) |
 | 대시보드 | `/dashboard` | 학습 통계, 진행률 차트, 알림, 빠른 접근 | 완료 (Mock 데이터) |
-| 레벨테스트 | `/level-test` | AI 적응형 역량 분석 (퀴즈 + 대화형) | 완료 |
-| 커리큘럼 | `/curriculum` | 주차별 학습 경로, 이론+실습 | 완료 (Mock 데이터) |
-| 커리큘럼 생성 | `/curriculum-generate` | AI 기반 맞춤형 커리큘럼 자동 생성 | 완료 |
-| 실습 환경 | `/lab` | Docker 격리 Lab, xterm.js 터미널 | 완료 |
+| 레벨테스트 | `/level-test` | AI 적응형 역량 분석 (12문항 + 대화형), 중복 질문 방지 | 완료 |
+| 커리큘럼 | `/curriculum` | 보안 학습 로드맵, 인라인 이론 콘텐츠 (OWASP, OSI 등) | 완료 |
+| 커리큘럼 생성 | `/curriculum-generate` | 7개 대분류 × 8~10개 세부 주제에서 선택, AI 커리큘럼 자동 생성 | 완료 |
+| 실습 환경 | `/lab` | Docker 격리 SQLi Lab, xterm.js 터미널 + iframe 브라우저, 30분 타이머 | 완료 |
 | 랭킹 | `/ranking` | 학습자 리더보드, 점수/레벨/트렌드 | 완료 (Mock 데이터) |
-| 스터디 그룹 | `/study-group` | 그룹 기반 협업 학습, 메시징 | 완료 (Mock 데이터) |
-| 관리자 | `/admin` | 로드맵 관리, 학습자 관리, 조직 설정 | 완료 |
+| 스터디 그룹 | `/study-group` | 그룹 기반 협업 학습, 팀 채팅 | 완료 (Mock 데이터) |
+| 관리자 | `/admin` | 로드맵 관리, 보상 관리, AI 로드맵 생성, 분석 | 완료 |
+| 어그먼트 데모 | `/augment-demo` | 게이미피케이션 보안 챌린지 (18개 어그먼트, 5개 시나리오) | 완료 |
 
 ### 핵심 기능 상세
 
@@ -58,27 +59,51 @@
 두 가지 모드 제공:
 
 **AI 적응형 테스트 (12문항)**
-- Q1~Q3: 고정 시드 질문 (학습 동기, IT 경험, 관심 보안 분야)
-- Q4~Q8: AI가 이전 답변 기반으로 학습 방향·목표·선호 학습 방식 심층 탐색
-- Q9~Q12: 관심 분야 기반 4지선다 지식 측정
+- Q1~Q8: 학습 방향 탐색 (동기, IT 경험, 관심 분야, 학습 방식 심층 탐색)
+- Q9~Q12: 관심 분야 기반 4지선다 지식 측정 (`quiz` 타입)
+- 질문 유형: `single-with-text`, `multi-with-text`, `quiz`
+- 중복 질문 방지: 단어 겹침 유사도(임계값 > 0.5) 기반 탐지 + 자동 재생성 (최대 2회)
 - 최종: 레이더 차트 + 프로필 분석 + 맞춤 학습 경로 추천
+- AI 설정: `gpt-4.1-mini`, temperature `0.7`, max_tokens `400`
 
 **AI 대화형 상담**
 - 자유 대화로 관심사·목표·경험 파악
 - 4단계 대화 가이드 (동기 → 세부 분야 → 구체적 목표 → 역량 확인)
 - 5회 이상 메시지 교환 후 분석 가능
+- AI 설정: temperature `0.8`, max_tokens `300`
+
+**분석 결과 스키마**
+```json
+{
+  "profileName": "...",
+  "profileDesc": "...",
+  "level": "초급|중급|상급",
+  "interests": ["tag1", "tag2"],
+  "strengths": ["s1", "s2", "s3"],
+  "improvements": ["i1", "i2", "i3"],
+  "recommendations": [{ "title": "...", "desc": "..." }],
+  "radarData": [{ "subject": "...", "score": 50 }]
+}
+```
 
 #### 2. 실습 환경 (`/lab`)
 
 Docker 기반 격리된 보안 실습 환경:
 
-- **공격자 컨테이너**: Ubuntu 22.04 + nmap, curl, python 등 보안 도구
-- **취약 웹앱**: PHP 8.1 + Apache (의도적 취약점: SQL Injection, XSS 등)
-- **데이터베이스**: MySQL 8.0
-- **네트워크 격리**: 세션별 독립 Docker 네트워크
+- **공격자 컨테이너**: Ubuntu 22.04 + nmap, curl, wget, netcat, python3, requests 등
+- **취약 웹앱**: PHP 8.1 + Apache (의도적 SQL Injection 취약점)
+- **데이터베이스**: MariaDB 10.11 (세션별 독립 인스턴스)
+- **네트워크 격리**: 세션별 독립 Docker 네트워크 (`learnops-net-<sessionId>`)
 - **리소스 제한**: 컨테이너당 256MB RAM, 0.5 CPU, PID 100개
-- **웹 터미널**: xterm.js + WebSocket으로 브라우저에서 직접 조작
-- **리버스 프록시**: 취약 웹앱을 iframe으로 임베딩
+- **웹 터미널**: xterm.js + WebSocket (`/ws/terminal`) 브라우저에서 직접 조작
+- **리버스 프록시**: 취약 웹앱을 iframe으로 임베딩 (`/api/lab/proxy`)
+- **비동기 프로비저닝**: POST `/api/lab/start` → 즉시 202 반환 → 프론트엔드 2초 간격 폴링
+- **DB 준비 확인**: 최대 2분(120초), 2초 간격 폴링, DB IP 직접 전달 (DNS 의존성 없음)
+- **고아 정리**: 서버 시작 시 `cleanupOrphans()`, 재시작 시 `cleanupSession()` 호출
+- **실습 완료 감지**: iframe `postMessage({ type: 'lab-clear' })` → localStorage 영속
+- **성공 UX**: 클리어 후 2초 대기 → 네비게이션 버튼 페이드인
+- **30분 타이머**: 실습 시간 카운트다운
+- **3단계 힌트 시스템**: 점진적으로 SQLi 기법 공개
 
 #### 3. 관리자 콘솔 (`/admin`)
 
@@ -90,34 +115,94 @@ Docker 기반 격리된 보안 실습 환경:
 - 스테이지별 문제 관리 (인라인 편집, AI/수동 추가)
 - **AI 로드맵 생성 위저드**: 채팅으로 요구사항 수집 → 구조화된 로드맵 자동 생성 → 리뷰/편집 → 저장
 
+**보상 관리**: 뱃지/포인트/수료증 정의 및 학습자별 부여 (JSON 파일 저장)
+
 **학습자 관리 탭**: 검색/필터, 상세 프로필, 실습 이력
 
 **조직 설정 탭**: 조직 정보, 멤버 초대, 기본 설정
 
 #### 4. AI 커리큘럼 생성 (`/curriculum-generate`)
 
-사용자가 주제를 입력하면 AI가 주차별 학습 계획을 자동 생성.
+7개 대분류(보안, 프론트엔드, 백엔드, 인프라, 데이터/AI, 모바일, 기타) × 8~10개 세부 주제에서 선택.
+AI가 6~10주 분량의 주차별 학습 계획 자동 생성 (temperature `0.7`, max_tokens `4000`).
+
+#### 5. 어그먼트 데모 (`/augment-demo`)
+
+게이미피케이션 보안 챌린지 시스템:
+- **18개 어그먼트**: Buff(6) / Nerf(5) / Wildcard(7), 3티어(silver/gold/prismatic)
+- **5개 시나리오**: SQLi 로그인 우회, XSS 저장형 공격, JWT 위조, SSRF 내부 탐색, Command Injection
+- 점수 배율: 0.7x (힌트 마스터) ~ 2.0x (원샷)
+
+### 인증 시스템
+
+- **방식**: 이메일 기반 더미 사용자 매칭 (프론트엔드 전용)
+- **영속성**: localStorage (키: `learnops-user`, 이메일 저장)
+- **로그인**: `login(email)` → `dummyUsers`에서 매칭 → localStorage 저장
+- **로그아웃**: localStorage 제거 + state null 초기화
+- **보호된 라우트**: `ProtectedRoute` 래퍼 → 미인증 시 `/login` 리다이렉트
+
+**더미 사용자 목록**:
+
+| 이름 | 이메일 | 역할 | 레벨 |
+|---|---|---|---|
+| 김보안 | boahn.kim@example.com | operator | 고급 |
+| 이해커 | hacker.lee@example.com | learner | 중급 |
+| 박시큐 | secu.park@example.com | learner | 초급 |
 
 ### 서버 API
 
 | 엔드포인트 | 메서드 | 설명 | Rate Limit |
 |---|---|---|---|
 | `/api/health` | GET | 서버 상태 확인 | - |
-| `/api/ai/chat` | POST | OpenAI 프록시 (GPT-4o-mini) | 20/min |
-| `/api/lab/start` | POST | Lab 환경 시작 (Docker 컨테이너 생성) | 10/min |
-| `/api/lab/stop` | POST | Lab 환경 종료 (컨테이너 제거) | 10/min |
-| `/api/lab/status` | GET | Lab 상태 확인 | 10/min |
-| `/api/lab/proxy/*` | ALL | 취약 웹앱 리버스 프록시 | 10/min |
+| `/api/ai/chat` | POST | OpenAI 프록시 (GPT-4.1-mini) | 20/min |
+| `/api/ai/save-results` | POST | 레벨테스트 결과 저장 (MD 파일) | 20/min |
+| `/api/ai/curriculum` | POST | 저장된 결과에서 AI 커리큘럼 생성 | 20/min |
+| `/api/ai/save-curriculum` | POST | 생성된 커리큘럼 저장 (JSON 파일) | 20/min |
+| `/api/ai/saved-curriculum` | GET | 저장된 커리큘럼 조회 | 20/min |
+| `/api/lab/start` | POST | Lab 비동기 시작 (즉시 202 반환) | 60/min |
+| `/api/lab/stop` | POST | Lab 환경 종료 (컨테이너 제거) | 60/min |
+| `/api/lab/status` | GET | Lab 상태 폴링 | 60/min |
+| `/api/lab/proxy/*` | ALL | 취약 웹앱 리버스 프록시 (iframe용) | 60/min |
+| `/api/rewards/settings` | GET/POST | 보상 타입 조회/생성 | - |
+| `/api/rewards/settings/:id` | DELETE | 보상 타입 삭제 | - |
+| `/api/rewards/assignments` | GET/POST | 보상 부여 조회/생성 | - |
 | `/ws/terminal` | WS | 컨테이너 터미널 WebSocket | - |
+
+### 서버 설정
+
+| 설정 | 값 |
+|---|---|
+| 기본 포트 | 3001 (환경변수: `SERVER_PORT`) |
+| CORS Origin | `http://localhost:5173` (환경변수: `CORS_ORIGIN`) |
+| Trust Proxy | `1` (Nginx 뒤에서 동작) |
+| Helmet CSP | 비활성화 (`contentSecurityPolicy: false`) |
+| Helmet 예외 | `/api/lab/proxy` 경로는 Helmet 전체 스킵 |
+| Body Parser 예외 | `/api/lab/proxy` 경로는 raw body 직접 파이프 |
+
+### Docker 컨테이너 설정
+
+| 설정 | 값 |
+|---|---|
+| DB 이미지 | `learnops-vuln-db` (MariaDB 10.11) |
+| App 이미지 | `learnops-vuln-app` (PHP 8.1 + Apache) |
+| Attacker 이미지 | `learnops-attacker` (Ubuntu 22.04) |
+| 메모리 제한 | 256MB / 컨테이너 |
+| CPU 제한 | 0.5 코어 / 컨테이너 |
+| PID 제한 | 100개 / 컨테이너 |
+| DB 준비 타임아웃 | 120초 (2초 간격 폴링) |
+| 컨테이너 정지 타임아웃 | 2초 |
+| 네트워크 | `learnops-net-<sessionId>` (세션별 격리) |
+| Attacker 사용자 | `learner` (UID 1000, 비root) |
 
 ### 기술 스택
 
 | 영역 | 기술 |
 |---|---|
-| 프론트엔드 | React 18, React Router 6, Recharts, xterm.js, Lucide Icons |
-| 백엔드 | Node.js, Express.js, ws (WebSocket), Dockerode |
-| AI | OpenAI GPT-4o-mini |
-| 컨테이너 | Docker, Docker Compose |
+| 프론트엔드 | React 18, React Router 6, Recharts, xterm.js (5.5), Lucide Icons |
+| 백엔드 | Node.js (ESM), Express 4, ws 8, Dockerode 4, Helmet 8, express-rate-limit 7 |
+| AI | OpenAI GPT-4.1-mini |
+| 컨테이너 | Docker, Docker Compose (이미지 빌드 전용), Dockerode (런타임 관리) |
+| 데이터베이스 | MariaDB 10.11 (Lab용), JSON 파일 (서버 데이터) |
 | 웹서버 | Nginx (리버스 프록시 + SPA 라우팅 + gzip) |
 | 프로세스 관리 | systemd |
 | 형상 관리 | Git, GitHub |
@@ -127,23 +212,32 @@ Docker 기반 격리된 보안 실습 환경:
 ```
 LearnOps/
 ├── src/
-│   ├── pages/           # 11개 페이지 컴포넌트
-│   ├── components/      # 공통 컴포넌트 (Navbar, Sidebar, Card, Button, Footer)
-│   ├── hooks/           # useLabWebSocket, useContainerStatus
-│   └── data/            # Mock 사용자 데이터
+│   ├── App.jsx              # 라우트 정의 (ProtectedRoute 포함)
+│   ├── main.jsx             # React 루트 + AuthProvider
+│   ├── pages/               # 12개 페이지 컴포넌트
+│   ├── components/          # Navbar, Sidebar, Card, Button, Footer
+│   ├── hooks/               # useContainerStatus, useLabWebSocket
+│   ├── context/             # AuthContext (localStorage 영속)
+│   └── data/                # 더미 사용자 데이터 (users.js)
 ├── server/
-│   ├── index.js         # Express 서버 진입점
-│   ├── docker.js        # Docker 컨테이너 관리
-│   └── routes/
-│       ├── lab.js       # Lab API 라우트
-│       └── ai.js        # OpenAI 프록시 라우트
+│   ├── index.js             # Express 서버 진입점 (Helmet, CORS, Rate Limit)
+│   ├── docker.js            # Docker 컨테이너 관리 (비동기 프로비저닝)
+│   ├── routes/
+│   │   ├── lab.js           # Lab API 라우트 + 리버스 프록시
+│   │   ├── ai.js            # OpenAI 프록시 + 결과/커리큘럼 저장
+│   │   └── rewards.js       # 보상 관리 CRUD
+│   └── data/
+│       ├── results/         # 레벨테스트 결과 (MD 파일)
+│       ├── curricula/       # AI 커리큘럼 (JSON 파일)
+│       └── rewards/         # 보상 설정/부여 (JSON 파일)
 ├── docker/
-│   ├── attacker/        # 공격자 컨테이너 Dockerfile
-│   ├── vuln-app/        # 취약 웹앱 (PHP)
-│   └── vuln-db/         # MySQL + 초기화 SQL
-├── docker-compose.yml   # 개발용 컨테이너 오케스트레이션
-├── vite.config.js       # Vite 설정 (프록시 포함)
-└── .env                 # 환경변수 (OPENAI_API_KEY)
+│   ├── attacker/            # 공격자 컨테이너 (Ubuntu 22.04 + 보안 도구)
+│   ├── vuln-app/            # 취약 웹앱 (PHP 8.1 + Apache, SQLi 취약점)
+│   └── vuln-db/             # MariaDB 10.11 + 초기화 SQL
+├── dist/                    # Vite 프로덕션 빌드 출력
+├── docker-compose.yml       # 이미지 빌드용 Compose
+├── vite.config.js           # Vite 설정 (API/WS 프록시)
+└── .env                     # 환경변수 (OPENAI_API_KEY, SERVER_PORT 등)
 ```
 
 ---
@@ -277,6 +371,8 @@ npm run build
 
 ```
 OPENAI_API_KEY=sk-proj-...    # OpenAI API 키 (서버에서만 사용)
+SERVER_PORT=3001               # 백엔드 포트 (기본값: 3001)
+CORS_ORIGIN=http://localhost:5173  # CORS 허용 오리진
 ```
 
 ### 서버 배포 (Oracle Cloud)

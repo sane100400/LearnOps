@@ -444,36 +444,42 @@ async function generateCurriculum(analysis, field) {
   const fieldInfo = IT_FIELDS.find(f => f.id === field)
   const fieldLabel = fieldInfo?.label || 'IT'
 
-  const systemPrompt = `당신은 ${fieldLabel} 분야 학습 커리큘럼 설계 전문가입니다.
-사용자의 레벨테스트 분석 결과를 바탕으로 주차별 모듈 단위의 세분화된 맞춤형 학습 로드맵을 생성하세요.
+  const interests = (analysis.interests || []).join(', ')
+  const improvements = (analysis.improvements || []).join(', ')
+  const recommendations = (analysis.recommendations || []).map(r => `${r.title}: ${r.desc}`).join('\n')
 
-분석 결과:
+  const systemPrompt = `당신은 ${fieldLabel} 분야 실무 중심 학습 커리큘럼 설계 전문가입니다.
+
+[학습자 프로필]
 - 분야: ${fieldLabel}
 - 레벨: ${analysis.level}
-- 관심 분야: ${(analysis.interests || []).join(', ')}
-- 강점: ${(analysis.strengths || []).join(', ')}
-- 보완점: ${(analysis.improvements || []).join(', ')}
-- 추천 경로: ${(analysis.recommendations || []).map(r => r.title).join(', ')}
+- 관심 세부 분야: ${interests}
+- 보완이 필요한 영역: ${improvements}
+- 추천 학습 경로:
+${recommendations}
 
-규칙:
-- 사용자의 레벨에 맞는 난이도로 설계하세요
-- 각 주차가 이전 주차를 기반으로 자연스럽게 이어지도록 구성하세요
-- 6~10주차로 구성하세요
-- 각 주차에 이론과 실습 모듈을 3~5개씩 포함하세요
-- 모듈의 type은 "이론" 또는 "실습" 중 하나
-- 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
+[핵심 설계 원칙]
+1. "${interests}"를 중심으로 깊이 있게 다루세요. 광범위한 개론이 아닌, 관심 세부 분야의 실무 스킬에 집중하세요.
+2. 각 모듈에는 반드시 구체적인 도구명, 프레임워크명, 기술명을 포함하세요. (예: "네트워크 기초" (X) → "Wireshark로 HTTP/DNS 패킷 캡처 분석" (O))
+3. 실습 모듈은 실제 수행할 과제를 명시하세요. (예: "SQL Injection 실습" (X) → "DVWA에서 Union-based SQLi로 DB 덤프 추출하기" (O))
+4. 이론 모듈의 desc에는 학습할 핵심 개념 3~4가지를 나열하세요.
+5. ${analysis.level === '초급' ? '기초 개념부터 시작하되, 매 주차 실습 비중을 40% 이상으로 유지하세요.' : analysis.level === '상급' ? '기초를 건너뛰고, 고급 기법과 실전 프로젝트 위주로 구성하세요.' : '기초는 1~2주로 빠르게 정리하고, 3주차부터 실전 중심으로 진행하세요.'}
+6. 각 주차에 이론 + 실습 합쳐 3~5개 모듈을 포함하세요.
+7. 8~10주차로 구성하세요.
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
 
 {
-  "title": "커리큘럼 제목",
+  "title": "구체적인 커리큘럼 제목 (예: 웹 모의해킹 실전 마스터 과정)",
   "totalWeeks": 8,
   "weeks": [
     {
       "week": 1,
       "title": "주차 제목",
-      "goal": "주차 학습 목표",
+      "goal": "이 주차를 마치면 할 수 있는 것 (구체적 산출물/역량)",
       "modules": [
-        { "type": "이론", "title": "모듈명", "desc": "상세 설명", "time": "30분" },
-        { "type": "실습", "title": "모듈명", "desc": "상세 설명", "time": "60분" }
+        { "type": "이론", "title": "구체적 모듈명", "desc": "핵심 개념 3~4가지 나열", "time": "30분" },
+        { "type": "실습", "title": "구체적 실습 과제명", "desc": "사용 도구와 수행할 작업 명시", "time": "60분" }
       ]
     }
   ]
@@ -1022,8 +1028,7 @@ export default function LevelTest() {
 
     // Save results to server
     try {
-      const stored = localStorage.getItem('learnops_user')
-      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const userId = localStorage.getItem('learnops-user') || 'anonymous'
       const fieldLabel = IT_FIELDS.find(f => f.id === selectedField)?.label || 'IT'
       await fetch('/api/ai/save-results', {
         method: 'POST',
@@ -1102,8 +1107,7 @@ export default function LevelTest() {
     setStep('generating-curriculum')
     let result = null
     try {
-      const stored = localStorage.getItem('learnops_user')
-      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const userId = localStorage.getItem('learnops-user') || 'anonymous'
       const res = await fetch('/api/ai/curriculum', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1120,8 +1124,7 @@ export default function LevelTest() {
   /* ----- Save curriculum to server ----- */
   const handleSaveCurriculum = async () => {
     try {
-      const stored = localStorage.getItem('learnops_user')
-      const userId = stored ? JSON.parse(stored).email : 'anonymous'
+      const userId = localStorage.getItem('learnops-user') || 'anonymous'
       const res = await fetch('/api/ai/save-curriculum', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

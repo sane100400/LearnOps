@@ -159,8 +159,7 @@ export default function Curriculum() {
   useEffect(() => {
     async function loadSaved() {
       try {
-        const stored = localStorage.getItem('learnops_user')
-        const userId = stored ? JSON.parse(stored).email : null
+        const userId = localStorage.getItem('learnops-user') || null
         if (!userId) { setLoading(false); return }
         const res = await fetch(`/api/ai/saved-curriculum?userId=${encodeURIComponent(userId)}`)
         if (!res.ok) { setLoading(false); return }
