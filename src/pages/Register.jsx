@@ -214,7 +214,7 @@ const styles = {
   page: {
     minHeight: '100vh',
     background: '#F8FAFC',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'inherit',
     color: '#0F172A',
     position: 'relative',
     overflow: 'hidden',
@@ -327,7 +327,7 @@ const styles = {
     fontSize: '0.95rem',
     outline: 'none',
     transition: 'border-color 0.2s ease',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'inherit',
     boxSizing: 'border-box',
   },
   toggleBtn: {
@@ -359,7 +359,7 @@ const styles = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     color: '#64748B',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'inherit',
   },
   roleCardActive: {
     border: '1px solid rgba(79, 70, 229, 0.5)',

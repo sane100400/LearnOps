@@ -382,7 +382,7 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'inherit',
   },
   trackBtnActive: {
     background: '#fff',
@@ -573,12 +573,14 @@ const styles = {
   },
   categoryRow: {
     padding: '14px 24px',
-    fontSize: '0.85rem',
-    fontWeight: 800,
-    color: '#fff',
-    background: 'linear-gradient(135deg, #4F46E5, #06B6D4)',
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    color: '#4F46E5',
+    background: '#EEF2FF',
+    borderTop: '2px solid #E2E8F0',
+    borderBottom: '1px solid #E2E8F0',
+    letterSpacing: '0.04em',
     textTransform: 'uppercase',
-    letterSpacing: '0.05em',
   },
   td: {
     padding: '16px 24px',
@@ -616,7 +618,7 @@ const styles = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: 'inherit',
   },
   faqQuestionText: {
     fontSize: '0.95rem',

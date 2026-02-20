@@ -1132,7 +1132,7 @@ export default function AugmentDemo() {
 
 const s = {
   // Page
-  pageWrap: { minHeight: '100vh', background: '#0a0a1a', color: '#E2E8F0', fontFamily: "'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" },
+  pageWrap: { minHeight: '100vh', background: '#0a0a1a', color: '#E2E8F0', fontFamily: 'inherit' },
 
   // Header
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'relative', zIndex: 100 },
