@@ -19,7 +19,7 @@ function renderCellValue(val) {
 
 function PlanCard({ plan, isYearly, isTeam }) {
   const price = plan.isEnterprise ? null : (isYearly ? plan.price.yearly : plan.price.monthly)
-  const unit = isTeam ? (plan.priceUnit || '') : '/월'
+  const unit = isTeam ? (plan.priceUnit || '월') : '월'
   const isMailLink = plan.ctaLink?.startsWith('mailto:')
 
   const ctaEl = (
@@ -96,27 +96,25 @@ function ComparisonTable({ track }) {
             ))}
           </tr>
         </thead>
-        <tbody>
-          {data.categories.map((cat) => (
-            <tbody key={cat.name}>
-              <tr>
-                <td colSpan={cols.length + 1} style={styles.categoryRow}>{cat.name}</td>
-              </tr>
-              {cat.features.map((feat, i) => (
-                <tr key={`${cat.name}-${i}`}>
-                  <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 500 }}>
-                    {feat.label}
+        {data.categories.map((cat) => (
+          <tbody key={cat.name}>
+            <tr>
+              <td colSpan={cols.length + 1} style={styles.categoryRow}>{cat.name}</td>
+            </tr>
+            {cat.features.map((feat, i) => (
+              <tr key={`${cat.name}-${i}`}>
+                <td style={{ ...styles.td, textAlign: 'left', color: '#0F172A', fontWeight: 500 }}>
+                  {feat.label}
+                </td>
+                {keys.map((key, ki) => (
+                  <td key={key} style={{ ...styles.td, ...(ki === highlightIdx ? styles.tdHighlight : {}) }}>
+                    {renderCellValue(feat[key])}
                   </td>
-                  {keys.map((key, ki) => (
-                    <td key={key} style={{ ...styles.td, ...(ki === highlightIdx ? styles.tdHighlight : {}) }}>
-                      {renderCellValue(feat[key])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          ))}
-        </tbody>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
     </div>
   )
@@ -175,7 +173,7 @@ export default function Pricing() {
               </div>
 
               {/* Billing toggle */}
-              <div style={styles.toggleWrap}>
+              <div style={{ ...styles.toggleWrap, display: 'flex', justifyContent: 'center' }}>
                 <span style={{ ...styles.toggleLabel, color: !isYearly ? '#0F172A' : '#94A3B8' }}>월간</span>
                 <button
                   style={styles.toggleTrack}
@@ -196,7 +194,7 @@ export default function Pricing() {
         {/* Pricing Cards */}
         <section style={styles.section}>
           <div className="container">
-            <div style={{
+            <div className="pricing-card-grid" style={{
               ...styles.cardGrid,
               gridTemplateColumns: `repeat(${plans.length}, 1fr)`,
             }}>
@@ -634,7 +632,12 @@ const styles = {
 
 const pricingStyleSheet = document.createElement('style')
 pricingStyleSheet.textContent = `
-  @media (max-width: 900px) {
+  @media (max-width: 1024px) {
+    .pricing-card-grid {
+      grid-template-columns: 1fr 1fr !important;
+    }
+  }
+  @media (max-width: 700px) {
     .pricing-card-grid {
       grid-template-columns: 1fr !important;
     }
