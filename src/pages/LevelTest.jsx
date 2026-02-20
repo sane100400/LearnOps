@@ -217,141 +217,124 @@ async function aiProxy(messages, temperature = 0.8, max_tokens = 500) {
    OpenAI API — Adaptive Question Generation
    ========================================================= */
 
+// 질문에서 핵심 토픽 키워드를 추출 (중복 비교용)
+function extractTopicTag(question) {
+  // 불용어 제거 후 핵심 명사구만 남김
+  return question
+    .replace(/[?？~!.,'"()\[\]]/g, '')
+    .replace(/\b(어떤|혹시|있나요|인가요|무엇|어느|정도|관련|대해|분야|경험|현재|학습|시작|하려는|이유|수준|해본|적이|중에서|골라주세요|알고|계신|가요)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// 두 질문의 유사도 (0~1) — 단어 겹침 기반
+function questionSimilarity(q1, q2) {
+  const words1 = new Set(extractTopicTag(q1).split(' ').filter(w => w.length > 1))
+  const words2 = new Set(extractTopicTag(q2).split(' ').filter(w => w.length > 1))
+  if (words1.size === 0 || words2.size === 0) return 0
+  const intersection = [...words1].filter(w => words2.has(w)).length
+  return intersection / Math.min(words1.size, words2.size)
+}
+
+// 새 질문이 기존 질문들과 중복인지 체크
+function isDuplicate(newQuestion, history) {
+  return history.some(h => questionSimilarity(newQuestion, h.question) > 0.5)
+}
+
 async function generateNextQuestion(history, field) {
   const config = getFieldPromptConfig(field)
-  const historyText = history.map((h, i) =>
-    `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}`
-  ).join('\n\n')
-
   const currentNum = history.length + 1
   const isDirectionPhase = currentNum <= DIRECTION_PHASE_END
-
-  const directionTopicsList = config.directionTopics.map(t => `- ${t}`).join('\n')
-
-  // 이미 질문된 토픽을 추적하여 중복 방지
-  const askedTopics = history.map(h => h.question).join(' | ')
-
-  // 이전 답변에서 사용자가 언급한 세부 관심 분야 추출
-  const userAnswersText = history.map(h => h.answer).join(' ')
-  const userFocusHint = history.length >= 2
-    ? `\n\n**[핵심] 이전 답변 분석 결과, 사용자가 언급한 키워드/관심 분야를 파악하세요.**
-사용자의 전체 답변 내용: "${userAnswersText}"
-→ 여기서 사용자가 구체적으로 언급한 세부 분야(예: 시스템 해킹, 포렌식, 웹 해킹, 악성코드 분석, 리버싱, 네트워크 침투 등)가 있다면, **그 분야를 중심으로** 질문하세요.
-→ 사용자가 이미 관심 분야를 밝혔는데 또 "어떤 분야에 관심 있나요?" 같은 광범위한 질문을 하지 마세요.
-→ 대신 해당 분야 안에서 더 구체적인 지식/기법/개념을 물어보세요 (예: 알고 있는 취약점 유형, 학습한 분석 기법, 이해하고 있는 핵심 개념, 경험한 공격/방어 시나리오 등).`
-    : ''
-
-  const directionGuidance = isDirectionPhase
-    ? `현재는 **방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})입니다.
-
-참고할 수 있는 대주제 (이 중에서만 고를 필요 없이 자유롭게 파생 질문 가능):
-${directionTopicsList}
-${userFocusHint}
-
-질문 설계 원칙:
-- 처음 배우는 학생을 가르치듯 차근차근, 친근하게 질문하세요
-- 사용자의 직전 답변에서 키워드를 잡아 **거기서 한 단계 더 깊이** 파고드세요
-- 예: "취업 준비"라고 답했으면 → "어떤 회사/직무를 목표로 하시나요?" 처럼 구체화
-- 예: "CTF 경험 있어요"라고 답했으면 → "어떤 분야 문제를 주로 풀었나요?" 처럼 확장
-- **사용자가 특정 세부 분야(예: 시스템 해킹, 포렌식 등)에 관심 있다고 밝혔다면, 이후 질문은 전체 분야를 넓게 묻지 말고 해당 세부 분야 안에서 깊이 들어가세요**
-- 예: "시스템 해킹에 관심"이라고 답했으면 → "어떤 OS 환경(Linux/Windows)에서 학습하고 싶으신가요?", "버퍼 오버플로우나 권한 상승 중 어떤 기법에 더 흥미가 있나요?" 처럼 해당 분야를 파고드세요
-- 같은 대주제라도 **다른 각도**에서 물어보세요 (예: 목표 → 시기/기한, 경험 → 어려웠던 점)
-- 단답형이 나올 법한 뻔한 질문 대신, 사용자의 생각을 끌어낼 수 있는 질문을 하세요
-- **"어떤 도구/툴을 사용하나요?" 같은 단순 도구 나열 질문은 하지 마세요.** 도구보다는 해당 분야의 **핵심 지식, 기법, 개념, 취약점 유형, 분석 방법론**에 대해 물어보세요.
-  - 나쁜 예: "어떤 보안 도구를 사용해보셨나요?", "사용하는 프레임워크가 있나요?"
-  - 좋은 예: "어떤 종류의 취약점에 관심이 있나요?", "버퍼 오버플로우와 권한 상승 중 어떤 공격 기법을 더 깊이 배우고 싶으세요?", "메모리 보호 기법(ASLR, DEP 등)에 대해 들어보신 적 있나요?"
-- **사용자가 "모름", "잘 모르겠어요", "없어요", "아직 없음" 등 모르거나 해당 없다는 답변을 했다면, 그 주제를 다시 묻지 말고 완전히 다른 주제로 넘어가세요.** 같은 주제를 다른 말로 바꿔서 다시 물어보는 것도 금지입니다.
-- **절대 지식 측정 문제(quiz 타입)를 내지 마세요. 방향 탐색 질문만 하세요.**
-- **이전에 이미 질문한 내용과 같거나 유사한 질문은 절대 하지 마세요.**
-
-이미 질문된 내용 (중복 금지):
-${askedTopics}`
-    : `현재는 **지식 측정 단계** (문항 ${currentNum}/${MAX_QUESTIONS})입니다.
-
-**[핵심 규칙] 이전 문답 기록을 분석하여 사용자가 관심 있다고 밝힌 세부 분야를 파악하세요.**
-사용자의 전체 답변 내용: "${userAnswersText}"
-→ 사용자가 특정 세부 분야(예: 시스템 해킹, 포렌식, 웹 해킹 등)에 관심이 있다고 밝혔다면, **4문제 중 최소 3문제는 반드시 해당 세부 분야에서 출제하세요.**
-→ 예: 사용자가 "시스템 해킹"에 관심 있다고 했으면 → 버퍼 오버플로우, 권한 상승, 메모리 보호 기법, 셸코드, 리버스 엔지니어링, 리눅스 커널 취약점 등에서 출제
-→ 예: 사용자가 "포렌식"에 관심 있다고 했으면 → 디스크 포렌식, 메모리 포렌식, 네트워크 포렌식, 로그 분석 등에서 출제
-→ **절대 사용자가 관심 없다고 했거나 언급하지 않은 분야(예: 웹 보안)의 문제를 주력으로 내지 마세요.**
-→ 나머지 1문제만 다른 영역에서 출제하여 기본 소양을 확인하세요.
-
-전체 지식 영역 참고: ${config.knowledgeAreas.join(', ')}
-- 반드시 quiz 타입을 사용하세요
-- 너무 쉽거나 너무 어려운 문제는 피하세요
-- 이전에 틀린 문제가 있다면 난이도를 조절하세요
-- **매 문제마다 반드시 다른 주제/토픽에서 출제하세요. 이전 문답 기록에 이미 나온 주제(예: XSS, SQL Injection 등)와 동일하거나 유사한 주제로 다시 출제하지 마세요.**
-- 사용자의 관심 분야 내에서도 매번 다른 세부 토픽을 선택하세요`
-
   const fieldLabel = IT_FIELDS.find(f => f.id === field)?.label || field
 
-  const systemPrompt = `당신은 ${config.expertRole}이자, 학생을 처음부터 차근차근 이끌어주는 따뜻한 멘토입니다.
-사용자의 이전 답변을 꼼꼼히 읽고, 자연스럽게 이어지는 다음 질문을 생성하세요.
+  // 이전 질문을 짧은 토픽 태그로 요약
+  const usedTopics = history.map((h, i) => `${i + 1}. ${extractTopicTag(h.question)}`).join('\n')
 
-**[절대 규칙] 사용자가 선택한 분야: "${fieldLabel}"**
-- 이 테스트는 오직 "${fieldLabel}" 분야에 대한 레벨테스트입니다.
-- 다른 IT 분야(예: ${fieldLabel === '백엔드 개발' ? '프론트엔드, 모바일, 인프라' : fieldLabel === '프론트엔드 개발' ? '백엔드, 모바일, 인프라' : fieldLabel === '사이버 보안' ? '프론트엔드, 백엔드, 모바일' : '프론트엔드, 백엔드, 모바일'} 등)로 전환하거나, 다른 분야를 할 의향이 있는지 묻는 질문은 절대 하지 마세요.
-- 선택지에 다른 IT 분야를 포함하지 마세요. 모든 질문과 선택지는 "${fieldLabel}" 범위 안에서만 구성하세요.
-
-목표: 사용자의 학습 동기, 현재 상황, 목표, 경험을 하나씩 차근차근 파악합니다. 마지막에 지식 수준을 측정합니다.
-
-${directionGuidance}
-
-질문 다양성 규칙:
-- **이전 문답 기록에 이미 나온 질문, 주제, 키워드와 중복되는 질문은 절대 하지 마세요**
-- 직전 답변의 구체적인 단어/표현을 활용하여 후속 질문을 만드세요
-- 매번 질문의 톤과 형식을 바꾸세요 (예: "어떤 ~", "혹시 ~", "~ 해본 적 있나요?", "~ 중에서 골라주세요")
-- 선택지도 매번 새로운 관점에서 구성하세요
-- 한 번에 1개 질문만 생성하세요
-- 주관식(text)만으로 이루어진 질문은 절대 생성하지 마세요
-- 모든 질문에는 반드시 객관식 선택지 3개를 포함해야 합니다
-- 사용자가 선택지 외에 직접 입력할 수 있는 기능은 UI가 자동으로 제공하므로 선택지에 "기타"를 넣지 마세요
-- 아래 JSON 형식 중 하나로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
-
-사용 가능한 질문 유형:
-
-1) 단일 선택 (+ 직접 입력 가능):
-{"type":"single-with-text","question":"질문","options":["선택지1","선택지2","선택지3"]}
-
-2) 복수 선택 (+ 직접 입력 가능):
-{"type":"multi-with-text","question":"질문","options":["선택지1","선택지2","선택지3"]}
-
-3) 4지선다 지식 문제 (정답 포함) — **지식 측정 단계에서만 사용**:
-{"type":"quiz","question":"질문","options":["선택지1","선택지2","선택지3","선택지4"],"answer":0}
-answer는 정답 인덱스(0~3)
-
-현재까지 ${history.length}개 질문 완료. 총 ${MAX_QUESTIONS}개 질문 예정.`
-
-  // 직전 답변을 별도 강조하여 AI가 맥락을 잡도록 함
+  // 직전 Q&A만 별도 강조 (최근 맥락)
   const lastEntry = history[history.length - 1]
-  const lastAnswerHighlight = lastEntry
-    ? `\n\n[직전 답변 — 이 내용을 반드시 반영하여 후속 질문을 만드세요]\nQ: ${lastEntry.question}\nA: "${lastEntry.answer}"`
+  const recentContext = lastEntry
+    ? `직전 Q&A:\nQ: ${lastEntry.question}\nA: "${lastEntry.answer}"`
     : ''
 
-  try {
-    const content = await aiProxy(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `이전 문답 기록:\n${historyText}${lastAnswerHighlight}\n\n위 답변 내용을 반영하여 다음 질문을 생성해주세요.` },
-      ],
-      0.9,
-      500,
-    )
-    if (!content) return null
+  // 전체 히스토리는 최근 3개만 (프롬프트 길이 절감)
+  const recentHistory = history.slice(-3).map((h, i) =>
+    `Q: ${h.question}\nA: ${h.answer}`
+  ).join('\n\n')
 
-    let jsonStr = content
-    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim()
+  let phaseBlock
+  if (isDirectionPhase) {
+    const topicsList = config.directionTopics.map(t => `- ${t}`).join('\n')
+    phaseBlock = `**방향 탐색 단계** (${currentNum}/${DIRECTION_PHASE_END})
 
-    const parsed = JSON.parse(jsonStr)
-    if (parsed.question && parsed.type) {
-      if (parsed.type === 'text') return null
-      return parsed
-    }
-    return null
-  } catch {
-    return null
+참고 대주제:\n${topicsList}
+
+원칙:
+- 직전 답변의 키워드를 잡아 한 단계 더 깊이 파고드세요
+- 사용자가 관심 분야를 밝혔으면 그 안에서 구체화하세요 (광범위한 재질문 금지)
+- "모름/없어요" 답변한 주제는 다시 묻지 말고 다른 주제로 넘어가세요
+- 도구/툴 나열 질문 금지 → 핵심 지식, 기법, 개념을 물어보세요
+- quiz 타입 금지 (방향 탐색만)`
+  } else {
+    const userAnswersText = history.map(h => h.answer).join(' ')
+    phaseBlock = `**지식 측정 단계** (${currentNum}/${MAX_QUESTIONS})
+
+사용자 답변 요약: "${userAnswersText}"
+→ 사용자 관심 분야 중심으로 출제 (4문제 중 3문제는 관심 분야에서)
+지식 영역: ${config.knowledgeAreas.join(', ')}
+- 반드시 quiz 타입 사용 (4지선다, answer 포함)
+- 매 문제 다른 토픽에서 출제`
   }
+
+  const systemPrompt = `당신은 ${config.expertRole}이자 따뜻한 멘토입니다.
+분야: "${fieldLabel}" (다른 IT 분야 질문/선택지 금지)
+
+${phaseBlock}
+
+**이미 다룬 토픽 (절대 중복 금지):**
+${usedTopics}
+
+출력 형식 (JSON만, 다른 텍스트 없이):
+- 단일선택: {"type":"single-with-text","question":"...","options":["A","B","C"]}
+- 복수선택: {"type":"multi-with-text","question":"...","options":["A","B","C"]}
+- 퀴즈(지식측정만): {"type":"quiz","question":"...","options":["A","B","C","D"],"answer":0}
+선택지에 "기타" 금지. 1개 질문만 생성.`
+
+  const userPrompt = recentHistory
+    ? `최근 문답:\n${recentHistory}\n\n${recentContext}\n\n다음 질문을 생성하세요.`
+    : '첫 AI 생성 질문을 만들어주세요.'
+
+  // 최대 2회 시도 (중복이면 1회 재생성)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const content = await aiProxy(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        0.7,
+        400,
+      )
+      if (!content) return null
+
+      let jsonStr = content
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (codeBlockMatch) jsonStr = codeBlockMatch[1].trim()
+
+      const parsed = JSON.parse(jsonStr)
+      if (!parsed.question || !parsed.type || parsed.type === 'text') continue
+
+      // 중복 체크 — 유사도 높으면 재시도
+      if (isDuplicate(parsed.question, history) && attempt === 0) {
+        console.log('[LevelTest] 중복 감지, 재생성:', parsed.question)
+        continue
+      }
+
+      return parsed
+    } catch {
+      continue
+    }
+  }
+  return null
 }
 
 /* =========================================================
