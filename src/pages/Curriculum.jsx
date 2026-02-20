@@ -164,14 +164,15 @@ export default function Curriculum() {
         const res = await fetch(`/api/ai/saved-curriculum?userId=${encodeURIComponent(userId)}`)
         if (!res.ok) { setLoading(false); return }
         const data = await res.json()
-        if (data.weeks && data.weeks.length > 0) {
+        const items = data.phases || data.weeks
+        if (items && items.length > 0) {
           setSavedRaw(data)
-          setSavedCurriculum(data.weeks.map((week, wi) => ({
-            week: week.week, title: week.title, goal: week.goal,
+          setSavedCurriculum(items.map((item, wi) => ({
+            week: item.phase || item.week, title: item.title, goal: item.goal,
             status: wi === 0 ? 'in-progress' : 'locked',
-            modules: (week.modules || []).map((mod, mi) => ({
-              id: `s${week.week}-${mi + 1}`, type: mod.type, title: mod.title,
-              desc: mod.desc, time: mod.time,
+            modules: (item.modules || []).map((mod, mi) => ({
+              id: `s${item.phase || item.week}-${mi + 1}`, type: mod.type, title: mod.title,
+              desc: mod.desc,
               status: wi === 0 && mi === 0 ? 'in-progress' : 'locked',
             })),
           })))
@@ -313,7 +314,7 @@ export default function Curriculum() {
                     <div style={st.cardTopRow}>
                       <div style={st.cardIconWrap}><BookOpen size={26} /></div>
                       <div style={st.cardMeta}>
-                        <div style={st.cardMetaItem}><Calendar size={14} /><span>{savedRaw.totalWeeks || savedCurriculum.length}주 과정</span></div>
+                        <div style={st.cardMetaItem}><Calendar size={14} /><span>{savedRaw.totalPhases || savedRaw.totalWeeks || savedCurriculum.length} Phase</span></div>
                         <div style={st.cardMetaItem}><Layers size={14} /><span>{savedStats.totalModules}개 모듈</span></div>
                       </div>
                     </div>
@@ -323,7 +324,7 @@ export default function Curriculum() {
                     <div style={st.chipRow}>
                       {savedCurriculum.slice(0, 3).map(w => (
                         <span key={w.week} style={{ ...st.chip, ...(w.status === 'completed' ? st.chipDone : w.status === 'in-progress' ? st.chipActive : {}) }}>
-                          W{w.week} {w.title}
+                          P{w.week} {w.title}
                         </span>
                       ))}
                       {savedCurriculum.length > 3 && <span style={st.chip}>+{savedCurriculum.length - 3}</span>}
@@ -363,7 +364,7 @@ export default function Curriculum() {
   const setter = isDefault ? setDemoCurriculum : setSavedCurriculum
   const title = isDefault ? '사이버 보안 기초 커리큘럼' : (savedRaw?.title || 'AI 맞춤 커리큘럼')
   const { totalModules, completedModules, percent: overallPercent } = calcStats(data)
-  const totalWeeks = isDefault ? 6 : (savedRaw?.totalWeeks || data.length)
+  const totalPhases = isDefault ? 6 : (savedRaw?.totalPhases || savedRaw?.totalWeeks || data.length)
 
   return (
     <div className="dashboard-layout">
@@ -379,7 +380,7 @@ export default function Curriculum() {
               <Sparkles size={28} style={{ color: '#F59E0B' }} />
               <h1 style={st.pageTitle}>{title}</h1>
             </div>
-            <p style={st.pageSubtitle}>총 {totalWeeks}주 과정 &middot; {totalModules}개 모듈</p>
+            <p style={st.pageSubtitle}>{isDefault ? `총 ${totalPhases}주 과정` : `총 ${totalPhases} Phase`} &middot; {totalModules}개 모듈</p>
 
             <div style={st.overallWrap}>
               <div style={st.overallRow}>
@@ -419,7 +420,7 @@ export default function Curriculum() {
                         color: isCompleted ? '#10B981' : isInProgress ? '#06B6D4' : '#64748B',
                       }}>
                         {isCompleted ? <CheckCircle2 size={16}/> : isLocked ? <Lock size={16}/> : <BookOpen size={16}/>}
-                        <span>Week {week.week}</span>
+                        <span>{isDefault ? `Week ${week.week}` : `Phase ${week.week}`}</span>
                       </div>
                       <div style={st.weekInfo}>
                         <h3 style={{ ...st.weekTitle, color: isLocked ? '#94A3B8' : '#0F172A' }}>{week.title}</h3>
@@ -470,10 +471,12 @@ export default function Curriculum() {
                                       {mod.type === '이론' ? <FileText size={12}/> : mod.type === '워게임' ? <Swords size={12}/> : <Code size={12}/>}
                                       {mod.type}
                                     </span>
-                                    <div style={st.modTime}>
-                                      <Clock size={12} style={{ color: '#94A3B8' }}/>
-                                      <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>{mod.time}</span>
-                                    </div>
+                                    {mod.time && (
+                                      <div style={st.modTime}>
+                                        <Clock size={12} style={{ color: '#94A3B8' }}/>
+                                        <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>{mod.time}</span>
+                                      </div>
+                                    )}
                                   </div>
                                   <span style={{
                                     ...st.modTitle,

@@ -16,9 +16,9 @@ import {
   Smartphone,
   BookOpen,
   Save,
-  Clock,
   FileText,
   Code,
+  Swords,
 } from 'lucide-react'
 import {
   RadarChart,
@@ -463,23 +463,25 @@ ${recommendations}
 2. 각 모듈에는 반드시 구체적인 도구명, 프레임워크명, 기술명을 포함하세요. (예: "네트워크 기초" (X) → "Wireshark로 HTTP/DNS 패킷 캡처 분석" (O))
 3. 실습 모듈은 실제 수행할 과제를 명시하세요. (예: "SQL Injection 실습" (X) → "DVWA에서 Union-based SQLi로 DB 덤프 추출하기" (O))
 4. 이론 모듈의 desc에는 학습할 핵심 개념 3~4가지를 나열하세요.
-5. ${analysis.level === '초급' ? '기초 개념부터 시작하되, 매 주차 실습 비중을 40% 이상으로 유지하세요.' : analysis.level === '상급' ? '기초를 건너뛰고, 고급 기법과 실전 프로젝트 위주로 구성하세요.' : '기초는 1~2주로 빠르게 정리하고, 3주차부터 실전 중심으로 진행하세요.'}
-6. 각 주차에 이론 + 실습 합쳐 3~5개 모듈을 포함하세요.
-7. 8~10주차로 구성하세요.
+5. ${analysis.level === '초급' ? '기초 개념부터 시작하되, 매 Phase마다 실습 비중을 40% 이상으로 유지하세요.' : analysis.level === '상급' ? '기초를 건너뛰고, 고급 기법과 실전 프로젝트 위주로 구성하세요.' : '기초는 Phase 1에서 빠르게 정리하고, Phase 2부터 실전 중심으로 진행하세요.'}
+6. 각 Phase에 이론 + 실습 합쳐 3~5개 모듈을 포함하되, 이론→실습→이론→실습 순으로 교차 배치하세요.
+7. 각 Phase 마지막에 반드시 type이 "워게임"인 모듈을 1개 추가하세요. 워게임은 해당 Phase에서 배운 내용을 종합적으로 테스트하는 실전 챌린지입니다.
+8. 4~6개 Phase로 구성하세요. (Phase = 학습 단계, 기간은 학습자가 결정)
 
 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
 
 {
   "title": "구체적인 커리큘럼 제목 (예: 웹 모의해킹 실전 마스터 과정)",
-  "totalWeeks": 8,
-  "weeks": [
+  "totalPhases": 5,
+  "phases": [
     {
-      "week": 1,
-      "title": "주차 제목",
-      "goal": "이 주차를 마치면 할 수 있는 것 (구체적 산출물/역량)",
+      "phase": 1,
+      "title": "Phase 제목",
+      "goal": "이 Phase를 마치면 할 수 있는 것 (구체적 산출물/역량)",
       "modules": [
-        { "type": "이론", "title": "구체적 모듈명", "desc": "핵심 개념 3~4가지 나열", "time": "30분" },
-        { "type": "실습", "title": "구체적 실습 과제명", "desc": "사용 도구와 수행할 작업 명시", "time": "60분" }
+        { "type": "이론", "title": "구체적 모듈명", "desc": "핵심 개념 3~4가지 나열" },
+        { "type": "실습", "title": "구체적 실습 과제명", "desc": "사용 도구와 수행할 작업 명시" },
+        { "type": "워게임", "title": "증강 워게임: 챌린지명", "desc": "이 Phase 학습 내용을 활용한 실전 챌린지" }
       ]
     }
   ]
@@ -519,202 +521,51 @@ function getFallbackCurriculum(analysis, field) {
   const fallbacks = {
     security: {
       title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: 'IT 기초 & 네트워크', goal: '컴퓨터 네트워크와 운영체제 기초 이해', modules: [
-          { type: '이론', title: '정보보안 개요', desc: 'CIA Triad, 보안 위협 종류, 핵심 개념 학습', time: '30분' },
-          { type: '이론', title: 'OSI 모델과 네트워크 기초', desc: 'OSI 7계층, TCP/IP, IP 주소와 포트', time: '45분' },
-          { type: '실습', title: 'Wireshark 패킷 분석', desc: '네트워크 패킷 캡처 및 분석 실습', time: '60분' },
-          { type: '실습', title: 'Nmap 포트 스캐닝', desc: '포트 스캐닝 도구 실습', time: '50분' },
+      totalPhases: 5,
+      phases: [
+        { phase: 1, title: '기초 & 네트워크', goal: '네트워크 구조를 이해하고 Wireshark/Nmap 활용 가능', modules: [
+          { type: '이론', title: '정보보안 개요', desc: 'CIA Triad, 보안 위협 종류, 인증/인가/감사 핵심 개념' },
+          { type: '실습', title: 'Wireshark 패킷 분석', desc: 'HTTP/DNS 패킷 캡처 및 프로토콜 분석' },
+          { type: '이론', title: 'OSI 모델과 TCP/IP', desc: 'OSI 7계층, TCP 3-way handshake, IP 주소와 서브넷' },
+          { type: '실습', title: 'Nmap 포트 스캐닝', desc: 'SYN/TCP Connect 스캔으로 대상 서비스 식별' },
+          { type: '워게임', title: '증강 워게임: 네트워크 정찰 챌린지', desc: '패킷 분석과 포트 스캐닝을 활용한 정보 수집 실전' },
         ]},
-        { week: 2, title: '웹 보안 기초', goal: '웹 애플리케이션의 주요 취약점 이해', modules: [
-          { type: '이론', title: 'HTTP/HTTPS 프로토콜', desc: 'HTTP 메서드, 상태 코드, TLS 암호화', time: '35분' },
-          { type: '이론', title: 'OWASP Top 10', desc: '주요 웹 취약점 10가지와 방어 원칙', time: '40분' },
-          { type: '실습', title: 'SQL Injection 실습', desc: 'DVWA 환경에서 SQLi 공격 및 방어', time: '60분' },
-          { type: '실습', title: 'XSS 공격과 방어', desc: 'Reflected/Stored XSS 실습', time: '55분' },
+        { phase: 2, title: '웹 보안', goal: 'OWASP Top 10 취약점을 이해하고 SQLi/XSS 공격 수행 가능', modules: [
+          { type: '이론', title: 'HTTP/HTTPS 프로토콜', desc: 'HTTP 메서드, 상태 코드, TLS 핸드셰이크, 쿠키/세션' },
+          { type: '실습', title: 'SQL Injection 공격', desc: 'DVWA에서 Union-based SQLi로 DB 덤프 추출' },
+          { type: '이론', title: 'OWASP Top 10', desc: 'Broken Access Control, Injection, XSS, SSRF 핵심 취약점' },
+          { type: '실습', title: 'XSS 공격과 방어', desc: 'Reflected/Stored XSS 페이로드 작성 및 CSP 방어' },
+          { type: '워게임', title: '증강 워게임: 웹 취약점 챌린지', desc: 'SQLi + XSS 복합 공격 시나리오' },
         ]},
-        { week: 3, title: '시스템 보안', goal: '리눅스 시스템 보안 기초 이해', modules: [
-          { type: '이론', title: 'Linux 보안 기초', desc: '리눅스 파일 시스템, 사용자 관리', time: '40분' },
-          { type: '이론', title: '권한 관리와 접근 제어', desc: 'chmod, chown, ACL 설정', time: '35분' },
-          { type: '실습', title: '리눅스 취약점 분석', desc: '권한 상승 취약점 실습', time: '60분' },
-          { type: '실습', title: '로그 분석', desc: '시스템 로그 분석 및 이상 탐지', time: '50분' },
+        { phase: 3, title: '시스템 & 암호학', goal: 'Linux 권한 관리와 암호화 원리 이해', modules: [
+          { type: '이론', title: 'Linux 보안 기초', desc: '파일 퍼미션, SUID/SGID, sudo 설정, 사용자 관리' },
+          { type: '실습', title: '리눅스 권한 상승', desc: 'SUID 바이너리 악용과 커널 취약점 기초' },
+          { type: '이론', title: '암호화 기초', desc: 'AES vs RSA, 해시 함수(SHA), 디지털 서명, PKI' },
+          { type: '실습', title: 'Python 암호화 실습', desc: 'hashlib, cryptography로 암호화/복호화 구현' },
+          { type: '워게임', title: '증강 워게임: 시스템 침투 챌린지', desc: '권한 상승과 로그 분석 종합 실전' },
         ]},
-        { week: 4, title: '암호학', goal: '암호화 기초 이론과 실습', modules: [
-          { type: '이론', title: '대칭키/비대칭키 암호화', desc: 'AES, RSA, 키 교환 프로토콜', time: '45분' },
-          { type: '이론', title: '해시 함수와 디지털 서명', desc: 'SHA, HMAC, PKI 인증서', time: '40분' },
-          { type: '실습', title: '암호화 알고리즘 구현', desc: 'Python으로 암호화 실습', time: '60분' },
+        { phase: 4, title: '모의해킹 실전', goal: '정보 수집부터 보고서 작성까지 전체 워크플로우 수행 가능', modules: [
+          { type: '이론', title: '모의해킹 방법론', desc: '정보 수집, 취약점 분석, 익스플로잇, 포스트 익스플로잇, 보고서' },
+          { type: '실습', title: 'Reconnaissance 실습', desc: 'Nmap, Gobuster, Nikto로 대상 정보 수집' },
+          { type: '실습', title: 'HackTheBox 풀이', desc: '초급 머신 풀이 및 침투 보고서 작성' },
+          { type: '워게임', title: '증강 워게임: 모의해킹 종합 챌린지', desc: '전체 Kill Chain을 수행하는 실전 시나리오' },
         ]},
-        { week: 5, title: '모의해킹 실전', goal: '실전 모의해킹 워크플로우 체험', modules: [
-          { type: '이론', title: '모의해킹 방법론', desc: '정보 수집, 취약점 분석, 보고서 작성 절차', time: '40분' },
-          { type: '실습', title: '정보 수집 실습', desc: 'Reconnaissance 도구 활용', time: '60분' },
-          { type: '실습', title: 'HackTheBox 풀이', desc: '초급 머신 풀이 및 보고서 작성', time: '90분' },
-        ]},
-        { week: 6, title: '포트폴리오 & 자격증', goal: '보안 커리어 준비', modules: [
-          { type: '이론', title: '보안 자격증 가이드', desc: '정보보안기사, CISSP, CEH 비교', time: '30분' },
-          { type: '실습', title: 'CTF 챌린지', desc: 'CTF 문제 풀이 실전 훈련', time: '90분' },
-          { type: '실습', title: '포트폴리오 완성', desc: '개인 보안 프로젝트 정리 및 발표', time: '60분' },
-        ]},
-      ],
-    },
-    frontend: {
-      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: 'HTML/CSS 기초', goal: '웹 페이지 구조와 스타일링 기초', modules: [
-          { type: '이론', title: '시맨틱 HTML', desc: 'HTML5 태그와 접근성', time: '30분' },
-          { type: '이론', title: 'CSS Flexbox/Grid', desc: '레이아웃 시스템 이해', time: '40분' },
-          { type: '실습', title: '반응형 랜딩 페이지', desc: '개인 포트폴리오 랜딩 페이지 제작', time: '60분' },
-        ]},
-        { week: 2, title: 'JavaScript 핵심', goal: 'JS 핵심 문법과 비동기 처리 이해', modules: [
-          { type: '이론', title: 'ES6+ 문법', desc: 'let/const, 화살표 함수, 구조분해', time: '40분' },
-          { type: '이론', title: 'DOM 조작과 이벤트', desc: 'DOM API, 이벤트 리스너', time: '35분' },
-          { type: '실습', title: 'To-Do 앱 구현', desc: '바닐라 JS로 CRUD 앱 제작', time: '60분' },
-          { type: '실습', title: '비동기 처리 실습', desc: 'Promise, async/await, fetch API', time: '50분' },
-        ]},
-        { week: 3, title: 'React 입문', goal: 'React 컴포넌트와 상태 관리 기초', modules: [
-          { type: '이론', title: 'JSX와 컴포넌트', desc: 'React 기본 개념과 컴포넌트 구조', time: '35분' },
-          { type: '이론', title: 'useState/useEffect', desc: 'React Hooks 기초', time: '40분' },
-          { type: '실습', title: '영화 검색 앱', desc: 'TMDB API 연동 React 앱', time: '60분' },
-        ]},
-        { week: 4, title: 'React 심화', goal: '대규모 앱 상태 관리 패턴 학습', modules: [
-          { type: '이론', title: 'Context API와 커스텀 훅', desc: '전역 상태 관리와 로직 재사용', time: '40분' },
-          { type: '실습', title: '장바구니 기능 구현', desc: 'E-commerce 장바구니 with 상태관리', time: '60분' },
-          { type: '실습', title: 'React Router', desc: '페이지 라우팅과 레이아웃 구현', time: '45분' },
-        ]},
-        { week: 5, title: '포트폴리오 프로젝트', goal: '실전 프로젝트로 역량 증명', modules: [
-          { type: '이론', title: '웹 성능 최적화', desc: 'Lighthouse, 코드 스플리팅, 메모이제이션', time: '35분' },
-          { type: '실습', title: '풀스택 프로젝트', desc: 'API 연동 프로젝트 완성', time: '90분' },
-          { type: '실습', title: 'Vercel 배포', desc: '프로젝트 배포 및 CI/CD 설정', time: '40분' },
-        ]},
-      ],
-    },
-    backend: {
-      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: '프로그래밍 기초', goal: '서버 개발을 위한 언어 기초', modules: [
-          { type: '이론', title: '서버 언어 선택 가이드', desc: 'Python vs Node.js 비교', time: '30분' },
-          { type: '이론', title: '자료구조와 OOP', desc: '배열, 맵, 클래스, 상속', time: '40분' },
-          { type: '실습', title: 'CLI 도구 제작', desc: '간단한 커맨드라인 도구 구현', time: '60분' },
-        ]},
-        { week: 2, title: 'RESTful API 설계', goal: 'REST API 설계 원칙과 구현', modules: [
-          { type: '이론', title: 'HTTP와 REST 원칙', desc: 'HTTP 메서드, 상태 코드, REST 설계', time: '35분' },
-          { type: '이론', title: 'Express/FastAPI', desc: '프레임워크 구조와 미들웨어', time: '40분' },
-          { type: '실습', title: 'CRUD API 구현', desc: 'RESTful API 서버 구축 실습', time: '60분' },
-        ]},
-        { week: 3, title: '데이터베이스', goal: 'RDB와 NoSQL 활용', modules: [
-          { type: '이론', title: 'SQL 기초', desc: 'CRUD 쿼리, JOIN, 서브쿼리', time: '40분' },
-          { type: '이론', title: '정규화와 인덱싱', desc: 'DB 설계 원칙과 성능 최적화', time: '35분' },
-          { type: '실습', title: 'DB 연동 API', desc: '게시판 API에 DB 연동', time: '60분' },
-        ]},
-        { week: 4, title: '인증 & 보안', goal: '인증 시스템 구현', modules: [
-          { type: '이론', title: 'JWT와 OAuth', desc: '토큰 기반 인증과 소셜 로그인', time: '40분' },
-          { type: '실습', title: '로그인 시스템 구현', desc: '회원가입, 로그인, 토큰 관리', time: '60분' },
-          { type: '실습', title: 'API 보안', desc: 'Rate limiting, CORS, 입력 검증', time: '45분' },
-        ]},
-        { week: 5, title: '배포 & 실전', goal: '서버 배포와 실무 패턴', modules: [
-          { type: '이론', title: 'Docker 기초', desc: '컨테이너 개념과 Dockerfile 작성', time: '35분' },
-          { type: '실습', title: 'Docker 배포', desc: 'Docker로 API 서버 배포', time: '60분' },
-          { type: '실습', title: '실전 프로젝트', desc: '전체 백엔드 시스템 구축 및 문서화', time: '90분' },
-        ]},
-      ],
-    },
-    infra: {
-      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: '리눅스 & 네트워크 기초', goal: '서버 운영 기초 역량', modules: [
-          { type: '이론', title: '리눅스 명령어', desc: '파일 시스템, 프로세스, 네트워크 명령', time: '40분' },
-          { type: '이론', title: '네트워크 기초', desc: 'TCP/IP, DNS, 포트, 방화벽', time: '35분' },
-          { type: '실습', title: '리눅스 서버 세팅', desc: 'VM에서 리눅스 서버 구축', time: '60분' },
-        ]},
-        { week: 2, title: '클라우드 서비스', goal: 'AWS 핵심 서비스 활용', modules: [
-          { type: '이론', title: 'AWS 핵심 서비스', desc: 'EC2, S3, VPC, IAM 개요', time: '40분' },
-          { type: '실습', title: '웹 서버 인프라 구축', desc: 'AWS에서 웹 서버 배포', time: '60분' },
-          { type: '실습', title: 'VPC와 보안 그룹', desc: '네트워크 설정과 보안 구성', time: '50분' },
-        ]},
-        { week: 3, title: '컨테이너', goal: 'Docker와 Kubernetes 기초', modules: [
-          { type: '이론', title: 'Docker 핵심', desc: 'Dockerfile, 이미지, 컨테이너', time: '40분' },
-          { type: '실습', title: 'docker-compose', desc: '멀티 컨테이너 앱 구성', time: '60분' },
-          { type: '실습', title: 'K8s 입문', desc: 'Pod, Service, Deployment', time: '60분' },
-        ]},
-        { week: 4, title: 'CI/CD & IaC', goal: '자동화 파이프라인 구축', modules: [
-          { type: '이론', title: 'CI/CD 개념', desc: 'GitHub Actions, 자동화 워크플로', time: '35분' },
-          { type: '실습', title: 'CI/CD 파이프라인', desc: '자동 테스트/배포 파이프라인 구축', time: '60분' },
-          { type: '실습', title: 'Terraform', desc: 'IaC로 인프라 프로비저닝', time: '60분' },
-        ]},
-        { week: 5, title: '실전 DevOps', goal: '프로덕션 환경 운영', modules: [
-          { type: '이론', title: '모니터링과 장애 대응', desc: 'Prometheus, Grafana, 알림 설정', time: '40분' },
-          { type: '실습', title: '로깅 시스템', desc: 'ELK 스택 또는 CloudWatch 구성', time: '60분' },
-          { type: '실습', title: '인프라 아키텍처 설계', desc: '프로덕션 아키텍처 설계 및 구축', time: '90분' },
-        ]},
-      ],
-    },
-    data: {
-      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: 'Python & SQL 기초', goal: '데이터 처리를 위한 도구 기초', modules: [
-          { type: '이론', title: 'Python 기초', desc: '자료형, 제어문, 함수, 라이브러리', time: '40분' },
-          { type: '이론', title: 'Pandas 입문', desc: 'DataFrame, 데이터 로드/정제', time: '35분' },
-          { type: '실습', title: '데이터 전처리', desc: '공공 데이터셋으로 전처리 실습', time: '60분' },
-        ]},
-        { week: 2, title: '데이터 분석 & 시각화', goal: 'EDA와 시각화 능력', modules: [
-          { type: '이론', title: '통계 기초', desc: '기술 통계, 확률 분포, 상관 분석', time: '40분' },
-          { type: '실습', title: '시각화 실습', desc: 'Matplotlib/Seaborn으로 시각화', time: '50분' },
-          { type: '실습', title: 'EDA 리포트', desc: '실제 데이터셋 EDA 리포트 작성', time: '60분' },
-        ]},
-        { week: 3, title: '머신러닝 기초', goal: 'ML 핵심 알고리즘 이해', modules: [
-          { type: '이론', title: '지도 학습', desc: '회귀, 분류, 평가 지표', time: '40분' },
-          { type: '이론', title: 'scikit-learn', desc: '모델 학습, 검증, 파이프라인', time: '35분' },
-          { type: '실습', title: '캐글 대회 참가', desc: '초급 대회 문제 풀이', time: '60분' },
-        ]},
-        { week: 4, title: '딥러닝', goal: '딥러닝 프레임워크 활용', modules: [
-          { type: '이론', title: 'PyTorch/TensorFlow', desc: '텐서, 뉴럴 네트워크 기초', time: '45분' },
-          { type: '실습', title: '이미지 분류', desc: 'CNN 모델로 이미지 분류 구현', time: '60분' },
-          { type: '실습', title: '모델 튜닝', desc: '하이퍼파라미터 튜닝과 실험 관리', time: '50분' },
-        ]},
-        { week: 5, title: '실전 프로젝트', goal: '엔드투엔드 데이터 프로젝트', modules: [
-          { type: '이론', title: '데이터 파이프라인', desc: 'ETL, 데이터 웨어하우스 개념', time: '35분' },
-          { type: '실습', title: 'ML 프로젝트', desc: '실전 ML 프로젝트 완성 및 배포', time: '90분' },
-          { type: '실습', title: '포트폴리오 정리', desc: '프로젝트 문서화 및 발표', time: '40분' },
-        ]},
-      ],
-    },
-    mobile: {
-      title: `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`,
-      totalWeeks: isBegin ? 10 : 8,
-      weeks: [
-        { week: 1, title: '프로그래밍 & 플랫폼 기초', goal: '모바일 개발 환경 세팅', modules: [
-          { type: '이론', title: '플랫폼 선택 가이드', desc: 'Swift vs Kotlin vs Flutter 비교', time: '30분' },
-          { type: '이론', title: 'UI 기초', desc: '모바일 UI 컴포넌트와 레이아웃', time: '35분' },
-          { type: '실습', title: '카운터 앱', desc: '개발 환경 구축 및 첫 앱 제작', time: '60분' },
-        ]},
-        { week: 2, title: 'UI 구현 & 레이아웃', goal: '모바일 UI 구현 능력', modules: [
-          { type: '이론', title: '네비게이션 패턴', desc: 'Tab, Stack, Drawer 네비게이션', time: '35분' },
-          { type: '실습', title: 'Todo 앱 UI', desc: 'Todo 리스트 앱 UI 구현', time: '60분' },
-          { type: '실습', title: '리스트 뷰', desc: '동적 리스트와 스크롤 뷰', time: '45분' },
-        ]},
-        { week: 3, title: 'API 연동 & 데이터', goal: 'REST API 연동과 로컬 저장소', modules: [
-          { type: '이론', title: 'HTTP 통신', desc: 'REST API 호출과 JSON 파싱', time: '35분' },
-          { type: '실습', title: '날씨 앱', desc: 'API 연동 날씨 앱 구현', time: '60분' },
-          { type: '실습', title: '로컬 DB', desc: 'SQLite/Realm 로컬 저장소 실습', time: '50분' },
-        ]},
-        { week: 4, title: '고급 기능', goal: '네이티브 기능과 아키텍처', modules: [
-          { type: '이론', title: 'MVVM 패턴', desc: '앱 아키텍처 패턴 이해', time: '40분' },
-          { type: '실습', title: '카메라/위치', desc: '카메라, GPS 네이티브 기능 활용', time: '60분' },
-          { type: '실습', title: '사진 공유 앱', desc: '사진 공유 앱 구현', time: '60분' },
-        ]},
-        { week: 5, title: '배포 & 포트폴리오', goal: '스토어 배포와 포트폴리오', modules: [
-          { type: '이론', title: '앱 빌드와 배포', desc: '서명, 빌드 설정, 스토어 가이드', time: '30분' },
-          { type: '실습', title: '스토어 배포', desc: '앱 스토어 배포 실습', time: '60분' },
-          { type: '실습', title: '포트폴리오 정리', desc: '프로젝트 문서화 및 코드 리뷰', time: '40분' },
+        { phase: 5, title: '커리어 & 포트폴리오', goal: '보안 포트폴리오 완성 및 자격증 준비', modules: [
+          { type: '이론', title: '보안 자격증 가이드', desc: '정보보안기사, CISSP, CEH, OSCP 비교 분석' },
+          { type: '실습', title: 'CTF 챌린지', desc: 'picoCTF/CTFtime 문제 풀이 실전 훈련' },
+          { type: '실습', title: '포트폴리오 완성', desc: '개인 보안 프로젝트 정리, Write-up 작성, 발표' },
+          { type: '워게임', title: '증강 워게임: 최종 종합 챌린지', desc: '전 Phase 학습 내용 종합 평가' },
         ]},
       ],
     },
   }
 
-  return fallbacks[field] || fallbacks.security
+  // 다른 분야는 security 폴백을 기반으로 제목만 변경
+  const base = fallbacks[field] || fallbacks.security
+  if (!fallbacks[field]) {
+    base.title = `${fieldLabel} ${isBegin ? '입문' : isAdv ? '심화' : '실전'} 로드맵`
+  }
+  return base
 }
 
 /* =========================================================
@@ -1660,42 +1511,38 @@ export default function LevelTest() {
                 </div>
                 <h1 style={s.curriculumTitle}>{curriculum.title}</h1>
                 <div style={s.curriculumBadge}>
-                  총 {curriculum.totalWeeks}주 과정
+                  총 {curriculum.totalPhases || curriculum.phases?.length || curriculum.totalWeeks || '?'} Phase
                 </div>
               </div>
 
-              {/* Weeks format (new) */}
-              {curriculum.weeks ? (
+              {/* Phases format */}
+              {(curriculum.phases || curriculum.weeks) ? (
                 <div style={s.weeksContainer}>
-                  {curriculum.weeks.map((week, wi) => (
+                  {(curriculum.phases || curriculum.weeks).map((phase, wi) => (
                     <div key={wi} style={s.weekBlock}>
                       <div style={s.weekBlockHeader}>
                         <div style={{
                           ...s.weekBadgeNode,
                           background: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'][wi % 6],
                         }}>
-                          W{week.week}
+                          {phase.phase || phase.week}
                         </div>
                         <div style={s.weekBlockInfo}>
-                          <h3 style={s.weekBlockTitle}>{week.title}</h3>
-                          <p style={s.weekBlockGoal}>{week.goal}</p>
+                          <h3 style={s.weekBlockTitle}>{phase.title}</h3>
+                          <p style={s.weekBlockGoal}>{phase.goal}</p>
                         </div>
                       </div>
                       <div style={s.modulesGrid}>
-                        {(week.modules || []).map((mod, mi) => (
+                        {(phase.modules || []).map((mod, mi) => (
                           <div key={mi} style={s.moduleCard}>
                             <div style={s.moduleCardTop}>
                               <span style={{
                                 ...s.moduleTypeBadge,
-                                background: mod.type === '이론' ? 'rgba(79,70,229,0.1)' : 'rgba(16,185,129,0.1)',
-                                color: mod.type === '이론' ? '#6366F1' : '#10B981',
+                                background: mod.type === '이론' ? 'rgba(79,70,229,0.1)' : mod.type === '워게임' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                                color: mod.type === '이론' ? '#6366F1' : mod.type === '워게임' ? '#F59E0B' : '#10B981',
                               }}>
-                                {mod.type === '이론' ? <FileText size={12} /> : <Code size={12} />}
+                                {mod.type === '이론' ? <FileText size={12} /> : mod.type === '워게임' ? <Swords size={12} /> : <Code size={12} />}
                                 {mod.type}
-                              </span>
-                              <span style={s.moduleTime}>
-                                <Clock size={12} style={{ color: '#94A3B8' }} />
-                                {mod.time}
                               </span>
                             </div>
                             <h4 style={s.moduleCardTitle}>{mod.title}</h4>
