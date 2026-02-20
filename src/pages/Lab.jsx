@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 
 const SESSION_ID = 'default'
+const LAB_TIME_SECONDS = 3600
 
 // Lab type determines default view: 'web' → browser first, 'system' → terminal first
 const LAB_TYPE = 'web'  // SQLi is a web lab
@@ -66,7 +67,7 @@ export default function Lab() {
   const [activeTab, setActiveTab] = useState(LAB_TYPE === 'web' ? 'web' : 'terminal')
   const [showHint, setShowHint] = useState(false)
   const [hintLevel, setHintLevel] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(3600)
+  const [timeLeft, setTimeLeft] = useState(LAB_TIME_SECONDS)
   const timerRef = useRef(null)
   const [submitted, setSubmitted] = useState(false)
   const [labCleared, setLabCleared] = useState(() => {
@@ -201,14 +202,24 @@ export default function Lab() {
     }
   }, [submitted, labCleared])
 
+  const resetLabSessionState = useCallback(() => {
+    clearInterval(timerRef.current)
+    setTimeLeft(LAB_TIME_SECONDS)
+    setSubmitted(false)
+    setLabCleared(false)
+    setShowActions(false)
+    localStorage.removeItem('lab-sqli-cleared')
+  }, [])
+
   const handleStart = useCallback(async () => {
+    resetLabSessionState()
     if (terminalRef.current) {
       terminalRef.current.clear()
       terminalRef.current.writeln('\x1b[36m[LearnOps Lab]\x1b[0m Docker 컨테이너를 시작합니다...')
       terminalRef.current.writeln('\x1b[33m[*]\x1b[0m attacker, vuln-app, MySQL 컨테이너 생성 중...\r\n')
     }
     await start()
-  }, [start])
+  }, [start, resetLabSessionState])
 
   const handleStop = useCallback(async () => {
     await stop()
@@ -218,12 +229,13 @@ export default function Lab() {
   }, [stop])
 
   const handleRestart = useCallback(async () => {
+    resetLabSessionState()
     if (terminalRef.current) {
       terminalRef.current.clear()
       terminalRef.current.writeln('\x1b[36m[LearnOps Lab]\x1b[0m 환경을 재시작합니다...\r\n')
     }
     await restart()
-  }, [restart])
+  }, [restart, resetLabSessionState])
 
   const handleHintToggle = () => {
     if (!showHint) {
