@@ -66,7 +66,7 @@ export default function Lab() {
   const [activeTab, setActiveTab] = useState(LAB_TYPE === 'web' ? 'web' : 'terminal')
   const [showHint, setShowHint] = useState(false)
   const [hintLevel, setHintLevel] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(1800)
+  const [timeLeft, setTimeLeft] = useState(3600)
   const timerRef = useRef(null)
   const [submitted, setSubmitted] = useState(false)
   const [labCleared, setLabCleared] = useState(() => {
