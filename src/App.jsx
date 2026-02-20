@@ -3,6 +3,8 @@ import { useAuth } from './context/AuthContext'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Pricing from './pages/Pricing'
+import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import LevelTest from './pages/LevelTest'
 import Curriculum from './pages/Curriculum'
@@ -25,6 +27,8 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/level-test" element={<ProtectedRoute><LevelTest /></ProtectedRoute>} />
       <Route path="/curriculum" element={<ProtectedRoute><Curriculum /></ProtectedRoute>} />

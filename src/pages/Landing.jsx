@@ -163,9 +163,9 @@ export default function Landing() {
                     무료로 시작하기 <ArrowRight size={18} />
                   </Button>
                 </Link>
-                <Link to="/level-test">
+                <Link to="/pricing">
                   <Button variant="secondary" size="large">
-                    레벨테스트 체험
+                    요금제 보기
                   </Button>
                 </Link>
               </div>

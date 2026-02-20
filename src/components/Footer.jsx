@@ -16,6 +16,7 @@ export default function Footer() {
           <div>
             <h4 style={styles.heading}>서비스</h4>
             <div style={styles.linkList}>
+              <Link to="/pricing" style={styles.link}>요금제</Link>
               <Link to="/level-test" style={styles.link}>레벨테스트</Link>
               <Link to="/curriculum" style={styles.link}>커리큘럼</Link>
               <Link to="/lab" style={styles.link}>실습 환경</Link>

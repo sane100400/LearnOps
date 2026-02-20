@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, Bell, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import Button from './Button'
 
 const navLinks = [
   { path: '/dashboard', label: '대시보드' },
@@ -88,6 +89,22 @@ export default function Navbar({ minimal = false }) {
               >
                 {mobileOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
+            </div>
+          </>
+        )}
+
+        {!minimal && !currentUser && (
+          <>
+            <div style={styles.links}>
+              <Link to="/pricing" style={styles.link}>요금제</Link>
+            </div>
+            <div style={styles.actions}>
+              <Link to="/login" style={{ textDecoration: 'none' }}>
+                <Button variant="ghost" size="small">로그인</Button>
+              </Link>
+              <Link to="/register" style={{ textDecoration: 'none' }}>
+                <Button size="small">무료로 시작</Button>
+              </Link>
             </div>
           </>
         )}
